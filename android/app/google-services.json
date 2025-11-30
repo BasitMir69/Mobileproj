@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "493668349983",
+    "project_id": "campuswave-9f2b3",
+    "storage_bucket": "campuswave-9f2b3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:493668349983:android:9c2131d37745603fe87d2a",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD7RpbU8C_kODqhMt8ApsQEFf5BmzKfta4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:493668349983:android:158690912f9a71c6e87d2a",
+        "android_client_info": {
+          "package_name": "com.fcc.mapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD7RpbU8C_kODqhMt8ApsQEFf5BmzKfta4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

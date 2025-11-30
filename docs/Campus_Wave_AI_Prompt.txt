@@ -1,0 +1,150 @@
+Role: You are a senior technical writer and mobile developer. Your task is to generate a comprehensive, structured project report for a Flutter app named "Campus Wave". The report must be accurate, detailed, and developer-friendly.
+
+Length & Depth Requirement:
+- Produce a full report of approximately 30–40 pages when printed to PDF (A4), using clear headings, tables, lists, and explanatory text. Include all details described below. Use sufficient narrative depth per section to reach the target length without filler.
+
+Objectives:
+- Produce a clear, well-organized report covering the entire app: purpose, features, architecture, data models, navigation, UI/UX patterns, assets, authentication, state management, search, booking system, theming/localization, build/run steps, known issues, and future enhancements.
+- Use precise language with short code path references to files (e.g., `lib/screens/campus_info_screen.dart`).
+- Output sections exactly as listed in "Output Requirements" below.
+
+Project Context:
+- Platform: Flutter (Dart), Firebase Auth, Provider, SharedPreferences, GoRouter
+- OS/Env: Windows, PowerShell, Emulator-5554
+- Repo: Mobileapp_proj (branch main), app name: Campus Wave
+- Dependencies (pubspec.yaml):
+  - firebase_core, firebase_auth, cloud_firestore
+  - provider, shared_preferences, go_router, image_picker
+  - intl, flutter_localizations, speech_to_text, http, cupertino_icons
+- Assets:
+  - `assets/Lgs Picscampus/` (campus cover PNGs)
+  - `assets/Lgsgallerypics/` (facilities gallery per campus)
+  - App icon screenshot asset
+
+Scope & Features:
+- Auth: Login/Signup via Firebase; Google Sign-In supported; redirects to Home
+- Home: central hub; quick access (Campus Info, Facilities, AI Chatbot); Student Services (Professors, Appointments); search
+- Campus Info: campus list + detail tabs (Overview, Facilities, Staff, History)
+  - Overview decluttered: removed quick actions (Book Appointment, View Library, Message Office)
+  - Staff tab navigates to campus-specific professors
+- Facilities: per-campus cover image + dedicated gallery (PageView) with breadcrumbs and search integration
+- Professors:
+  - Global grouped view: campus headings with professor cards showing name, title, dept, bio, skills chips, achievements, available slots, and booking button
+  - Campus-specific directory via Staff tab
+- Appointments:
+  - Booking from professor detail; persisted in SharedPreferences JSON by user; auto-navigate to Appointments
+  - Appointments screen: per-user list, cancel/clear-all, login prompt
+- Search: index over campuses and highlights; fuzzy search; GoRouter navigation
+- User Profile & Avatar: upload photo via `image_picker` stored base64 in SharedPreferences; avatar shows initials or photo; edit display name
+- Theming/Localization: emerald-themed dark/light; localized strings via `AppLocalizations`
+- AI Chatbot: screen present and discoverable via Home and search
+- Library & Cafeteria: placeholder content with images
+
+Architecture & Key Files:
+- Entry: `lib/main.dart` initializes Firebase, Providers, and builds `MaterialApp.router` with GoRouter
+- Routing: `lib/router.dart` with auth-aware redirects and named routes for all screens
+- Data:
+  - Campuses: `lib/data/campuses.dart` enriched model
+  - Professors: `lib/data/campus_professors.dart` (`ProfessorExtended` adds skills/achievements)
+  - Appointments sample: `lib/data/appointments.dart`
+  - Search index: `lib/data/search_repository.dart`
+- Screens:
+  - `lib/homescreen.dart`
+  - `lib/screens/campus_info_screen.dart`
+  - `lib/screens/facilities_screen.dart`
+  - `lib/screens/professors_screen.dart`
+  - `lib/screens/campus_professors_screen.dart`
+  - `lib/screens/professor_detail_screen.dart`
+  - `lib/screens/appointments_screen.dart`
+  - `lib/screens/search_screen.dart`
+  - `lib/screens/library_screen.dart`
+  - `lib/screens/cafeteria_screen.dart`
+  - `lib/screens/chatbot_screen.dart`
+  - `lib/screens/user_profile_screen.dart`
+- Widgets:
+  - `lib/widgets/lgs_image.dart`, `lib/widgets/emerald_card.dart`, `lib/widgets/elevated_action_card.dart`, `lib/widgets/spacing.dart`, `lib/widgets/theme_toggle_button.dart`, `lib/widgets/user_avatar_button.dart`
+
+Data Models:
+- Campus: name, location, imageUrl, description, features, history, academicHighlights, facilityHighlights, photoCaptions
+- Professor/ProfessorExtended: id, name, title, department, photoUrl, office, bio, availableSlots, skills, achievements
+- Appointment: id, userId, professorId, start, end, location
+
+Flows:
+- Auth → Home (`context.go('/home')`) after login/signup/Google
+- Campus browsing → Campus Info → Campus Detail tabs
+- Staff → Campus Professors → Professor Detail → Book
+- Booking → confirm → persist JSON in SharedPreferences (`bookings`) → auto-nav to `/appointments`
+- Appointments → per-user list, cancel/clear-all; login prompt if unauthenticated
+- Search → index + router navigation
+- Profile → photo + name updates persisted locally
+
+Assets Strategy:
+- Covers: `assets/Lgs Picscampus/*.png` mapped by campus name
+- Facilities gallery: `assets/Lgsgallerypics/` with explicit per-campus filenames
+- `LgsImage` provides asset-first with network fallback and placeholders
+
+Theming & Localization:
+- Dark/light emerald palettes with `ThemeProvider`; preference saved in SharedPreferences
+- `AppLocalizations` keys power UI strings
+
+Build & Run:
+- Ensure Firebase initialized in `main.dart`
+- Commands:
+  - `flutter pub get`
+  - `flutter run -d emulator-5554`
+
+Known Issues / Constraints:
+- Asset path casing must match exactly
+- GoRouter duplicate page-key assertion may occur; consider unique page keys or redirect timing adjustments if needed
+- Library/Cafeteria content is minimal placeholders
+- Appointments stored locally only (no backend sync)
+
+Future Enhancements:
+- Move bookings/profile storage to Firestore
+- Slot conflict detection and calendar integration
+- Expand chatbot capabilities and knowledge base
+- Index professors in Search and add filters
+- Add unit/widget tests, CI, and error tracking
+- Accessibility and performance improvements
+
+Output Requirements (use these section titles and order):
+1) Executive Summary
+2) App Overview
+3) Architecture & Dependencies
+4) Navigation & Routing
+5) Screens & Features
+6) Data Models
+7) Authentication
+8) State & Persistence
+9) Search
+10) Assets Strategy
+11) Theming & Localization
+12) Build & Run
+13) Known Issues
+14) Future Enhancements
+15) Appendix (file paths and key symbols)
+
+Extended Sections (add after Appendix for 30–40 pages):
+16) User Personas & Key Use Cases
+17) Detailed Functional Specification (per screen: inputs, outputs, states, edge cases)
+18) Routing Map & Navigation Flows (hierarchical tables and step-by-step flows)
+19) Data Dictionary (field-by-field tables for Campus, Professor, Appointment, SearchResultItem)
+20) Error Handling & UX States (empty, loading, error; retry and fallback behavior)
+21) Authentication Flows (happy path, failure modes, Google Sign-In specifics)
+22) Booking Lifecycle (confirmation, persistence, cancellation, clear-all; proposed conflict rules)
+23) Storage Schema Details (SharedPreferences keys, JSON structures, example entries)
+24) Localization Strategy (keys, languages, patterns, pluralization considerations)
+25) Accessibility & UX Guidelines (contrast, touch targets, semantics, keyboard navigation)
+26) Performance Plan (targets, lazy loading, image strategies, caching ideas)
+27) Testing Strategy (unit, widget, integration; sample cases and coverage goals)
+28) DevOps & CI Suggestions (linting, formatting, test runs, build steps)
+29) Security & Privacy (threat model, auth scopes, data handling, PII)
+30) Analytics & Telemetry Plan (events, properties, dashboards)
+31) Release Management (versioning, changelogs, environments)
+32) Roadmap (near-term and long-term milestones)
+
+
+Style:
+- Use clear headings and concise bullets; developer-friendly tone
+- Include brief code path references where helpful
+- Be accurate to this prompt; do not invent features

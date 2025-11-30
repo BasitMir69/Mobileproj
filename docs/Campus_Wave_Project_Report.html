@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campus Wave — Project Report</title>
+  <style>
+    :root {
+      --bg: #0b3b2c; /* dark emerald */
+      --fg: #ffffff;
+      --muted: rgba(255,255,255,0.75);
+      --accent: #10b981; /* emerald 500 */
+      --card: #06281f; /* deeper emerald */
+      --border: rgba(16,185,129,0.25);
+      --code-bg: #0f1a16;
+    }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    .container { max-width: 980px; margin: 0 auto; padding: 32px 20px; }
+    h1, h2, h3 { color: var(--fg); margin: 0 0 12px; }
+    h1 { font-size: 32px; }
+    h2 { font-size: 22px; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-top: 24px; }
+    h3 { font-size: 18px; margin-top: 18px; }
+    p { line-height: 1.6; color: var(--muted); }
+    ul { color: var(--muted); }
+    a { color: var(--accent); text-decoration: none; }
+    .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
+    .badge { background: var(--accent); color: #001510; font-weight: 700; padding: 6px 10px; border-radius: 999px; font-size: 12px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin: 12px 0; }
+    .toc a { display: block; margin: 6px 0; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    pre { background: var(--code-bg); padding: 12px; border-radius: 8px; overflow: auto; border: 1px solid #0c2a22; }
+    .path { font-family: ui-monospace, Consolas, monospace; background: var(--code-bg); padding: 2px 6px; border-radius: 6px; border: 1px solid #0c2a22; }
+    .small { font-size: 13px; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+    @page { margin: 20mm; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Campus Wave — Project Report</h1>
+      <span class="badge">Version 1.0 • 2025-11-30</span>
+    </div>
+    <div class="card toc">
+      <h2>Table of Contents</h2>
+      <a href="#exec">1) Executive Summary</a>
+      <a href="#overview">2) App Overview</a>
+      <a href="#arch">3) Architecture & Dependencies</a>
+      <a href="#routing">4) Navigation & Routing</a>
+      <a href="#screens">5) Screens & Features</a>
+      <a href="#models">6) Data Models</a>
+      <a href="#auth">7) Authentication</a>
+      <a href="#state">8) State & Persistence</a>
+      <a href="#search">9) Search</a>
+      <a href="#assets">10) Assets Strategy</a>
+      <a href="#theme">11) Theming & Localization</a>
+      <a href="#build">12) Build & Run</a>
+      <a href="#issues">13) Known Issues</a>
+      <a href="#future">14) Future Enhancements</a>
+      <a href="#appendix">15) Appendix (Paths)</a>
+    </div>
+
+    <section id="exec">
+      <h2>Executive Summary</h2>
+      <p>Campus Wave is a Flutter app for exploring LGS campuses, facilities, staff, and managing professor appointments. It integrates Firebase Auth for sign-in, Provider for state, GoRouter for navigation, SharedPreferences for local bookings, and a clean emerald-themed UI. Users browse campuses, view per-campus facilities galleries, find professors, book appointments, search across campus data, and access a basic AI chatbot screen.</p>
+    </section>
+
+    <section id="overview">
+      <h2>App Overview</h2>
+      <ul>
+        <li>Platforms: Flutter/Dart, Android emulator support.</li>
+        <li>Key libs: <span class="path">firebase_core</span>, <span class="path">firebase_auth</span>, <span class="path">provider</span>, <span class="path">go_router</span>, <span class="path">shared_preferences</span>, <span class="path">image_picker</span>, <span class="path">intl</span>, <span class="path">flutter_localizations</span>.</li>
+        <li>Assets: campus covers in <span class="path">assets/Lgs Picscampus/</span>; facilities gallery in <span class="path">assets/Lgsgallerypics/</span>.</li>
+        <li>Routing: centralized in <span class="path">lib/router.dart</span> with auth-aware redirects.</li>
+      </ul>
+    </section>
+
+    <section id="arch">
+      <h2>Architecture & Dependencies</h2>
+      <div class="card">
+        <p><strong>Entry</strong>: <span class="path">lib/main.dart</span> initializes Firebase and Providers, builds <code>MaterialApp.router</code> with <code>GoRouter</code>.</p>
+        <p><strong>Routing</strong>: <span class="path">lib/router.dart</span> defines root/shell navigator keys, named routes, and auth redirects.</p>
+        <p><strong>Data</strong>: Enriched campus data (<span class="path">lib/data/campuses.dart</span>), per-campus professors (<span class="path">lib/data/campus_professors.dart</span>), appointments sample (<span class="path">lib/data/appointments.dart</span>), search index (<span class="path">lib/data/search_repository.dart</span>).</p>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <h3>Dependencies</h3>
+          <ul>
+            <li><strong>firebase_core</strong> <span class="small">^3.15.1</span></li>
+            <li><strong>firebase_auth</strong> <span class="small">^5.6.2</span></li>
+            <li><strong>cloud_firestore</strong> <span class="small">^5.6.12</span></li>
+            <li><strong>provider</strong> <span class="small">^6.1.1</span></li>
+            <li><strong>shared_preferences</strong> <span class="small">^2.1.0</span></li>
+            <li><strong>go_router</strong> <span class="small">^14.1.0</span></li>
+            <li><strong>image_picker</strong> <span class="small">^1.1.2</span></li>
+            <li><strong>intl</strong> <span class="small">^0.20.2</span></li>
+            <li><strong>flutter_localizations</strong> <span class="small">SDK</span></li>
+            <li><strong>speech_to_text</strong> <span class="small">^7.3.0</span></li>
+            <li><strong>http</strong> <span class="small">^1.1.0</span></li>
+            <li><strong>cupertino_icons</strong> <span class="small">^1.0.8</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Widgets</h3>
+          <ul>
+            <li><span class="path">lib/widgets/lgs_image.dart</span> (asset-first with fallback)</li>
+            <li><span class="path">lib/widgets/emerald_card.dart</span>, <span class="path">lib/widgets/elevated_action_card.dart</span></li>
+            <li><span class="path">lib/widgets/spacing.dart</span>, <span class="path">lib/widgets/theme_toggle_button.dart</span>, <span class="path">lib/widgets/user_avatar_button.dart</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="routing">
+      <h2>Navigation & Routing</h2>
+      <p>Routes include login, signup, home, campus info/detail, facilities, professors (global and campus-specific), professor detail, appointments, search, cafeteria, library, chatbot, event/news details. Auth redirects gate sensitive routes; Home is the central hub after login.</p>
+      <div class="card">
+        <h3>Routing Table (GoRouter)</h3>
+        <div class="grid">
+          <div class="card">
+            <h3>Top-Level</h3>
+            <ul>
+              <li><strong>Path</strong> <span class="path">/login</span> • <strong>Name</strong> login • Screen: LoginScreenNew</li>
+              <li><strong>Path</strong> <span class="path">/signup</span> • <strong>Name</strong> signup • Screen: SignupScreen</li>
+              <li><strong>Path</strong> <span class="path">/createAccount</span> • <strong>Name</strong> createAccount • Screen: SignupScreen</li>
+              <li><strong>Path</strong> <span class="path">/campus/:slug</span> • <strong>Name</strong> campus-detail • Screen: CampusDetailScreen</li>
+              <li><strong>Child</strong> <span class="path">campus/:slug/professors</span> • <strong>Name</strong> campus-professors • Screen: CampusProfessorsScreen</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Shell (Bottom Nav)</h3>
+            <ul>
+              <li><strong>Path</strong> <span class="path">/home</span> • <strong>Name</strong> home • Screen: HomeScreen</li>
+              <li><strong>Path</strong> <span class="path">/campusInfo</span> • <strong>Name</strong> campusInfo • Screen: CampusInfoScreen</li>
+              <li><strong>Path</strong> <span class="path">/facilities</span> • <strong>Name</strong> facilities • Screen: FacilitiesScreen</li>
+              <li><strong>Path</strong> <span class="path">/appointments</span> • <strong>Name</strong> appointments • Screen: AppointmentsScreen</li>
+              <li><strong>Path</strong> <span class="path">/professors</span> • <strong>Name</strong> professors • Screen: ProfessorsScreen</li>
+              <li><strong>Path</strong> <span class="path">/search</span> • <strong>Name</strong> search • Screen: SearchScreen</li>
+              <li><strong>Path</strong> <span class="path">/cafeteria</span> • <strong>Name</strong> cafeteria • Screen: CafeteriaScreen</li>
+              <li><strong>Path</strong> <span class="path">/library</span> • <strong>Name</strong> library • Screen: LibraryScreen</li>
+              <li><strong>Path</strong> <span class="path">/chatbot</span> • <strong>Name</strong> chatbot • Screen: ChatbotScreen</li>
+              <li><strong>Path</strong> <span class="path">/eventDetail</span> • <strong>Name</strong> eventDetail • Screen: EventDetailScreen (<code>state.extra</code>)</li>
+              <li><strong>Path</strong> <span class="path">/newsDetail</span> • <strong>Name</strong> newsDetail • Screen: NewsDetailScreen (<code>state.extra</code>)</li>
+              <li><strong>Path</strong> <span class="path">/settings</span> • <strong>Name</strong> settings • Screen: SettingsScreen</li>
+              <li><strong>Path</strong> <span class="path">/profile</span> • <strong>Name</strong> profile • Screen: ProfileScreen</li>
+              <li><strong>Path</strong> <span class="path">/userProfile</span> • <strong>Name</strong> userProfile • Screen: UserProfileScreen</li>
+              <li><strong>Path</strong> <span class="path">/facilities/:slug</span> • <strong>Name</strong> facilities-detail • Screen: CampusFacilitiesDetail</li>
+              <li><strong>Path</strong> <span class="path">/professor/:id</span> • <strong>Name</strong> professorDetail • Screen: ProfessorDetailScreen</li>
+            </ul>
+          </div>
+        </div>
+        <p class="small">Redirects: unauthenticated users are sent to <span class="path">/login</span>; authenticated users visiting login/signup are redirected to <span class="path">/home</span>.</p>
+        <p class="small">Bottom navigation indices: 0 Home, 1 Facilities, 2 Appointments, 3 Settings.</p>
+      </div>
+    </section>
+
+    <section id="screens">
+      <h2>Screens & Features</h2>
+      <ul>
+        <li><span class="path">lib/homescreen.dart</span>: Home hub with quick access (Campus Info, Facilities, AI Chatbot), Student Services (Professors, Appointments), search.</li>
+        <li><span class="path">lib/screens/campus_info_screen.dart</span>: Campus list + tabs (Overview, Facilities, Staff, History). Overview decluttered — removed Book Appointment / View Library / Message Office buttons.</li>
+        <li><span class="path">lib/screens/facilities_screen.dart</span>: Per-campus cover mapping and gallery (PageView), breadcrumbs, search integration.</li>
+        <li><span class="path">lib/screens/professors_screen.dart</span>: Global grouped view by campus: bio, skills chips, achievements, available slots, booking.</li>
+        <li><span class="path">lib/screens/campus_professors_screen.dart</span>: Campus-specific directory; tap to detail/booking.</li>
+        <li><span class="path">lib/screens/professor_detail_screen.dart</span>: Booking flow with login prompt, confirmation, local persistence, auto-nav to Appointments.</li>
+        <li><span class="path">lib/screens/appointments_screen.dart</span>: Per-user list, cancel/clear-all, login prompt.</li>
+        <li><span class="path">lib/screens/search_screen.dart</span> + <span class="path">lib/data/search_repository.dart</span>: Index build, fuzzy search, slug navigation.</li>
+        <li><span class="path">lib/screens/user_profile_screen.dart</span>: Display name and photo management; avatar shows initials/photo.</li>
+        <li><span class="path">lib/screens/library_screen.dart</span>, <span class="path">lib/screens/cafeteria_screen.dart</span>: Placeholder galleries and copy.</li>
+        <li><span class="path">lib/screens/chatbot_screen.dart</span>: AI Chatbot screen present.</li>
+      </ul>
+    </section>
+
+    <section id="models">
+      <h2>Data Models</h2>
+      <ul>
+        <li><strong>Campus</strong> (<span class="path">lib/data/campuses.dart</span>): name, location, imageUrl, description, features, history, academicHighlights, facilityHighlights, photoCaptions.</li>
+        <li><strong>ProfessorExtended</strong> (<span class="path">lib/data/campus_professors.dart</span>): extends Professor with skills and achievements; plus availableSlots.</li>
+        <li><strong>Appointment</strong> (<span class="path">lib/data/appointments.dart</span>): id, userId, professorId, start, end, location.</li>
+      </ul>
+    </section>
+
+    <section id="auth">
+      <h2>Authentication</h2>
+      <p>Firebase Auth supports email/password and Google Sign-In. Post-auth routes call <code>context.go('/home')</code>. Login and Signup implemented in <span class="path">lib/loginscreen_new.dart</span> and <span class="path">lib/signup.dart</span>.</p>
+    </section>
+
+    <section id="state">
+      <h2>State & Persistence</h2>
+      <ul>
+        <li><strong>ThemeProvider</strong> (<span class="path">lib/theme/theme_provider.dart</span>): dark/light themes persisted in SharedPreferences.</li>
+        <li><strong>Appointments</strong>: stored locally in SharedPreferences (<span class="path">bookings</span> JSON), filtered by current Firebase user.</li>
+        <li><strong>User Profile</strong>: photo saved as base64 in SharedPreferences; display name via Firebase user.</li>
+      </ul>
+      <div class="card">
+        <h3>Local Storage Schema</h3>
+        <p>Bookings are stored as a JSON list under the key <span class="path">bookings</span>:</p>
+        <pre><code>[
+  {
+    "professorId": "p1",
+    "professorName": "Dr. Ayesha Khan",
+    "slot": "Tue 11:00",
+    "userUid": "&lt;firebase uid&gt;",
+    "createdAt": "2025-11-30T12:34:56.000Z"
+  }
+]</code></pre>
+        <p class="small">Profile photo is stored as base64 under <span class="path">profilePhotoBase64</span>. Theme preference under <span class="path">isDarkMode</span>.</p>
+      </div>
+    </section>
+
+    <section id="search">
+      <h2>Search</h2>
+      <p>Search index built from campus data in <span class="path">lib/data/search_repository.dart</span> with simple fuzzy scoring and slug navigation via <span class="path">lib/screens/search_screen.dart</span>.</p>
+      <div class="card">
+        <h3>Index & Scoring</h3>
+        <ul>
+          <li>Index items: campuses (name/location), facility highlights, academic highlights.</li>
+          <li>Slug generation matches router (<span class="path">campusSlug()</span>).</li>
+          <li>Fuzzy scoring prioritizes starts-with matches, then contains; results sorted by score descending.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="assets">
+      <h2>Assets Strategy</h2>
+      <ul>
+        <li>Campus covers: <span class="path">assets/Lgs Picscampus/*.png</span> mapped by campus name.</li>
+        <li>Facilities gallery: <span class="path">assets/Lgsgallerypics/</span> with explicit per-campus filenames.</li>
+        <li><strong>LgsImage</strong> (<span class="path">lib/widgets/lgs_image.dart</span>) prefers asset, falls back to network, then placeholder.</li>
+      </ul>
+    </section>
+
+    <section id="theme">
+      <h2>Theming & Localization</h2>
+      <ul>
+        <li>Emerald-themed dark/light palettes; <strong>ThemeToggleButton</strong> supports switching.</li>
+        <li>Localized strings via <span class="path">lib/l10n/app_localizations.dart</span>.</li>
+      </ul>
+    </section>
+
+    <section id="build">
+      <h2>Build & Run</h2>
+      <div class="card">
+        <p><strong>Firebase</strong> initialized in <span class="path">lib/main.dart</span>. Ensure <code>flutter pub get</code> completes and emulator is ready.</p>
+        <pre><code>flutter pub get
+flutter run -d emulator-5554</code></pre>
+        <p class="small">Note: Emulator disconnections may occur; re-run if needed.</p>
+        <p><strong>Auth Redirects</strong>: GoRouter sends unauthenticated users to <span class="path">/login</span> and redirects authenticated users away from login/signup to <span class="path">/home</span>.</p>
+      </div>
+    </section>
+
+    <section id="issues">
+      <h2>Known Issues</h2>
+      <ul>
+        <li>Asset path casing must match exact filenames.</li>
+        <li>Potential <code>go_router</code> duplicate page-key assertions in edge cases; unique keys or redirect timing may help.</li>
+        <li>Library/Cafeteria screens are placeholders.</li>
+        <li>Appointments are local-only (no backend sync).</li>
+        <li>Intermittent emulator connection loss during <code>flutter run</code>; retry recommended.</li>
+      </ul>
+    </section>
+
+    <section id="future">
+      <h2>Future Enhancements</h2>
+      <ul>
+        <li>Persist bookings/profile in Firestore.</li>
+        <li>Slot conflict detection and calendar integration.</li>
+        <li>Expand chatbot capabilities and campus resources.</li>
+        <li>Index professors in Search and add filters.</li>
+        <li>Add tests, CI, error tracking; improve accessibility and performance.</li>
+        <li>Replace local JSON schema with normalized collections in Firestore (users, professors, appointments).</li>
+      </ul>
+    </section>
+
+    <section id="appendix">
+      <h2>Appendix (Key Paths)</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Core</h3>
+          <ul>
+            <li><span class="path">lib/main.dart</span>, <span class="path">lib/router.dart</span></li>
+            <li><span class="path">pubspec.yaml</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Screens</h3>
+          <ul>
+            <li><span class="path">lib/homescreen.dart</span></li>
+            <li><span class="path">lib/screens/campus_info_screen.dart</span></li>
+            <li><span class="path">lib/screens/facilities_screen.dart</span></li>
+            <li><span class="path">lib/screens/professors_screen.dart</span></li>
+            <li><span class="path">lib/screens/campus_professors_screen.dart</span></li>
+            <li><span class="path">lib/screens/professor_detail_screen.dart</span></li>
+            <li><span class="path">lib/screens/appointments_screen.dart</span></li>
+            <li><span class="path">lib/screens/search_screen.dart</span></li>
+            <li><span class="path">lib/screens/library_screen.dart</span>, <span class="path">lib/screens/cafeteria_screen.dart</span></li>
+            <li><span class="path">lib/screens/chatbot_screen.dart</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Data & Widgets</h3>
+          <ul>
+            <li><span class="path">lib/data/campuses.dart</span></li>
+            <li><span class="path">lib/data/campus_professors.dart</span></li>
+            <li><span class="path">lib/data/appointments.dart</span></li>
+            <li><span class="path">lib/data/search_repository.dart</span></li>
+            <li><span class="path">lib/widgets/lgs_image.dart</span></li>
+            <li><span class="path">lib/widgets/emerald_card.dart</span></li>
+            <li><span class="path">lib/widgets/elevated_action_card.dart</span></li>
+            <li><span class="path">lib/widgets/spacing.dart</span></li>
+            <li><span class="path">lib/widgets/theme_toggle_button.dart</span></li>
+            <li><span class="path">lib/widgets/user_avatar_button.dart</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Extended sections to reach 30–40 pages -->
+    <section id="personas">
+      <h2>16) User Personas & Key Use Cases</h2>
+      <div class="card">
+        <h3>Personas</h3>
+        <ul>
+          <li><strong>Prospective Student</strong>: explores campuses, facilities, professors, and books guidance sessions.</li>
+          <li><strong>Current Student</strong>: searches facilities, books appointments, checks staff info, manages profile.</li>
+          <li><strong>Parent/Guardian</strong>: reviews campus info, facilities highlights, staff profiles, and contacts office.</li>
+          <li><strong>Staff/Professor</strong>: reviews own profile, availability slots, and appointments list.</li>
+        </ul>
+        <h3>Use Cases</h3>
+        <ul>
+          <li>Browse campus list → open campus detail tabs → view history and facilities.</li>
+          <li>Search for "library" or "sports" → navigate to campus or facilities relevant pages.</li>
+          <li>Open professors directory → filter by campus → select professor → book slot → view appointment.</li>
+          <li>Set profile photo and display name → avatar updates across app.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="functional-spec">
+      <h2>17) Detailed Functional Specification</h2>
+      <div class="card">
+        <h3>Home</h3>
+        <ul>
+          <li>Displays quick access cards: Campus Info, Facilities, AI Chatbot; Student Services: Professors, Appointments.</li>
+          <li>Search via AppBar or actions opens <span class="path">/search</span>.</li>
+          <li>ReadableWidth constrains content on wide layouts; consistent section headers.</li>
+        </ul>
+        <h3>Campus Info</h3>
+        <ul>
+          <li>Campus list with cover image (asset-first via <span class="path">LgsImage</span>) and teaser description.</li>
+          <li>Campus Detail has tabs: Overview (badges, description), Facilities (highlights grid), Staff (opens campus professors), History (expand/collapse).</li>
+          <li>Overview intentionally decluttered: removed Book Appointment, View Library, and Message Office actions.</li>
+        </ul>
+        <h3>Facilities</h3>
+        <ul>
+          <li>Campus cover image mapping via <span class="path">assetCoverForCampus</span>.</li>
+          <li>Gallery per campus (PageView) sourced from <span class="path">assets/Lgsgallerypics/</span>.</li>
+          <li>Breadcrumbs and search access; graceful image fallback behavior.</li>
+        </ul>
+        <h3>Professors</h3>
+        <ul>
+          <li>Global grouped view by campus, each with professor card.</li>
+          <li>Card shows name, title, department, bio, skills chips, achievements list, available slots, and booking action.</li>
+          <li>Campus-specific list available from Staff tab.</li>
+        </ul>
+        <h3>Professor Detail</h3>
+        <ul>
+          <li>Shows extended info (skills/achievements), office, bio, and slots.</li>
+          <li>Booking: prompts login if needed → confirmation dialog → SharedPreferences persist → auto-nav to appointments.</li>
+          <li>Error states: failed persistence, missing professor → fallback UI.</li>
+        </ul>
+        <h3>Appointments</h3>
+        <ul>
+          <li>Lists only current user’s bookings; supports cancel (remove item) and clear-all.</li>
+          <li>Prompts to login if unauthenticated.</li>
+          <li>Swipe-to-dismiss or explicit actions for cancellation.</li>
+        </ul>
+        <h3>Search</h3>
+        <ul>
+          <li>Index built from campuses, facility and academic highlights; suggestion tags (e.g., library, sports).</li>
+          <li>Results sorted via simple fuzzy scoring; navigates to campus routes.</li>
+        </ul>
+        <h3>Profile & Avatar</h3>
+        <ul>
+          <li>Set display name and photo (base64 in SharedPreferences); avatar shows initials or stored photo.</li>
+          <li>UserAvatarButton reads stored photo and Firebase user initials.</li>
+        </ul>
+        <h3>Library & Cafeteria</h3>
+        <ul>
+          <li>Present galleries and descriptive copy; future integration with campus-specific assets.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="routing-map">
+      <h2>18) Routing Map & Navigation Flows</h2>
+      <div class="card">
+        <h3>Hierarchical Map</h3>
+        <ul>
+          <li><span class="path">/login</span>, <span class="path">/signup</span>, <span class="path">/createAccount</span></li>
+          <li>Shell: <span class="path">/home</span>, <span class="path">/campusInfo</span>, <span class="path">/facilities</span>, <span class="path">/appointments</span>, <span class="path">/professors</span>, <span class="path">/search</span>, <span class="path">/cafeteria</span>, <span class="path">/library</span>, <span class="path">/chatbot</span>, <span class="path">/eventDetail</span>, <span class="path">/newsDetail</span>, <span class="path">/settings</span>, <span class="path">/profile</span>, <span class="path">/userProfile</span>, <span class="path">/facilities/:slug</span>, <span class="path">/professor/:id</span></li>
+          <li>Campus detail: <span class="path">/campus/:slug</span> → child: <span class="path">campus/:slug/professors</span></li>
+        </ul>
+        <h3>Flows</h3>
+        <ul>
+          <li>Login → Home → Campus Info → Campus Detail → Staff → Professors → Professor Detail → Book → Appointments.</li>
+          <li>Home → Facilities → pick campus → view gallery → back via breadcrumbs.</li>
+          <li>Search → select campus result → campus detail; or select facility highlight → navigate accordingly.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="data-dictionary">
+      <h2>19) Data Dictionary</h2>
+      <div class="card">
+        <h3>Campus</h3>
+        <ul>
+          <li><strong>name</strong>: String — canonical campus name.</li>
+          <li><strong>location</strong>: String — city/area detail.</li>
+          <li><strong>imageUrl</strong>: String — remote fallback URL.</li>
+          <li><strong>description</strong>: String — teaser copy.</li>
+          <li><strong>features</strong>: List&lt;String&gt; — bullets.</li>
+          <li><strong>history</strong>: String — long text.</li>
+          <li><strong>academicHighlights</strong>: List&lt;String&gt;.</li>
+          <li><strong>facilityHighlights</strong>: List&lt;String&gt;.</li>
+          <li><strong>photoCaptions</strong>: Map&lt;String, String&gt; — assetPath → caption.</li>
+        </ul>
+        <h3>ProfessorExtended</h3>
+        <ul>
+          <li><strong>id, name, title, department, photoUrl, office, bio</strong> — descriptive fields.</li>
+          <li><strong>availableSlots</strong>: List&lt;String&gt; — times like "Tue 11:00".</li>
+          <li><strong>skills</strong>: List&lt;String&gt; — competencies/subjects.</li>
+          <li><strong>achievements</strong>: List&lt;String&gt; — accolades/impact.</li>
+        </ul>
+        <h3>Appointment</h3>
+        <ul>
+          <li><strong>id</strong>: String — local unique id.</li>
+          <li><strong>userId</strong>: String — Firebase uid or demo.</li>
+          <li><strong>professorId</strong>: String.</li>
+          <li><strong>start, end</strong>: DateTime.</li>
+          <li><strong>location</strong>: String.</li>
+        </ul>
+        <h3>SearchResultItem</h3>
+        <ul>
+          <li><strong>section</strong>: enum campuses|facilities|professors (future).</li>
+          <li><strong>title</strong>: String; <strong>subtitle</strong>: String.</li>
+          <li><strong>slug</strong>: String — for campus routing.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="errors-ux">
+      <h2>20) Error Handling & UX States</h2>
+      <ul>
+        <li><strong>Empty</strong>: show friendly hints and navigation options.</li>
+        <li><strong>Loading</strong>: progress indicators on booking, image fallback on assets.</li>
+        <li><strong>Error</strong>: snackbars for booking failures, placeholders for image load errors.</li>
+        <li><strong>Retry</strong>: refresh actions on lists and galleries.</li>
+      </ul>
+    </section>
+
+    <section id="auth-flows">
+      <h2>21) Authentication Flows</h2>
+      <ul>
+        <li>Email/password login with validations; Google Sign-In via <span class="path">google_sign_in</span>.</li>
+        <li>Redirects: <span class="path">/login</span> → <span class="path">/home</span> on success; signup similarly.</li>
+        <li>Failure modes: invalid creds, network errors → snackbars and safe states.</li>
+      </ul>
+    </section>
+
+    <section id="booking-lifecycle">
+      <h2>22) Booking Lifecycle</h2>
+      <ul>
+        <li>Initiate from Professor Detail → select slot.</li>
+        <li>Login prompt if unauthenticated; confirmation dialog.</li>
+        <li>Persist JSON in SharedPreferences → auto-navigate to Appointments.</li>
+        <li>Cancel individual or clear-all; reload list on changes.</li>
+        <li>Proposed conflict rules: one active booking per professor per time slot (future backend enforcement).</li>
+      </ul>
+    </section>
+
+    <section id="storage-schema">
+      <h2>23) Storage Schema Details</h2>
+      <div class="card">
+        <pre><code>{
+  "bookings": "[ { \"professorId\": \"p1\", \"slot\": \"Tue 11:00\", \"userUid\": \"...\", \"createdAt\": \"...\" } ]",
+  "profilePhotoBase64": "&lt;base64 string&gt;",
+  "isDarkMode": true
+}</code></pre>
+        <p class="small">Keys stored in SharedPreferences; booking list merged on add/remove operations.</p>
+      </div>
+    </section>
+
+    <section id="localization">
+      <h2>24) Localization Strategy</h2>
+      <ul>
+        <li>Keys defined in <span class="path">lib/l10n/app_localizations.dart</span>.</li>
+        <li>Pattern: string maps per language; future pluralization via <span class="path">intl</span>.</li>
+      </ul>
+    </section>
+
+    <section id="accessibility">
+      <h2>25) Accessibility & UX Guidelines</h2>
+      <ul>
+        <li>Contrast: emerald palette tuned for dark/light visibility.</li>
+        <li>Touch targets: ≥ 44 px tap areas on mobile.</li>
+        <li>Semantics: icons labeled; headings structure consistent.</li>
+        <li>Keyboard navigation: basic support on desktop layouts.</li>
+      </ul>
+    </section>
+
+    <section id="performance">
+      <h2>26) Performance Plan</h2>
+      <ul>
+        <li>Lazy build lists; avoid excessive rebuilds by using const and keys.</li>
+        <li>Image strategies: asset-first, network fallback, sized containers.</li>
+        <li>Caching: consider <span class="path">cached_network_image</span> in future.</li>
+      </ul>
+    </section>
+
+    <section id="testing">
+      <h2>27) Testing Strategy</h2>
+      <ul>
+        <li>Unit: slugify functions, search scoring.</li>
+        <li>Widget: professors grouped list renders per campus; booking button behaviors.</li>
+        <li>Integration: login → booking → appointments flow.</li>
+        <li>Coverage goal: ≥ 60% initially; expand to ≥ 80% on core components.</li>
+      </ul>
+    </section>
+
+    <section id="devops">
+      <h2>28) DevOps & CI Suggestions</h2>
+      <ul>
+        <li>Lint/format with <span class="path">flutter_lints</span>; check on CI.</li>
+        <li>Run unit/widget tests; build APK on main branch.</li>
+        <li>Artifacts: HTML report and PDF exported on release.</li>
+      </ul>
+    </section>
+
+    <section id="security">
+      <h2>29) Security & Privacy</h2>
+      <ul>
+        <li>Auth scopes limited to basic profile and email.</li>
+        <li>PII: display name and photo stored locally; future backend storage must follow privacy policies.</li>
+        <li>Threat model: unauthorized access, token leakage; mitigate via Firebase Auth rules and secure storage.</li>
+      </ul>
+    </section>
+
+    <section id="analytics">
+      <h2>30) Analytics & Telemetry Plan</h2>
+      <ul>
+        <li>Core events: login success/failure, search queries, booking create/cancel, gallery views.</li>
+        <li>Properties: campus name, professor id (non-PII); avoid storing sensitive data.</li>
+        <li>Dashboards: usage trends, bookings per campus.</li>
+      </ul>
+    </section>
+
+    <section id="release">
+      <h2>31) Release Management</h2>
+      <ul>
+        <li>Versioning: semantic, e.g., 1.0.0; changelogs per release.</li>
+        <li>Environments: dev (emulator), staging (test devices), prod (store distribution).</li>
+      </ul>
+    </section>
+
+    <section id="roadmap">
+      <h2>32) Roadmap</h2>
+      <ul>
+        <li><strong>Near-term</strong>: Firestore bookings, professor search indexing, better facilities galleries, chatbot FAQ integration.</li>
+        <li><strong>Long-term</strong>: Admin dashboard, calendar sync, push notifications, multi-language expansion.</li>
+      </ul>
+    </section>
+
+    <div class="card">
+      <h3>Export to PDF (Windows)</h3>
+      <ul>
+        <li>Open <span class="path">docs/Campus_Wave_Project_Report.html</span> in Edge/Chrome.</li>
+        <li>Press <strong>Ctrl+P</strong> → Destination: <strong>Microsoft Print to PDF</strong>.</li>
+        <li>Click <strong>Print</strong> and save the PDF.</li>
+      </ul>
+    </div>
+
+  </div>
+</body>
+</html>
