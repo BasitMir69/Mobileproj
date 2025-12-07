@@ -15,15 +15,27 @@ import 'package:campus_wave/screens/professor_detail_screen.dart';
 import 'package:campus_wave/models/professor.dart';
 import 'package:campus_wave/data/campus_professors.dart';
 // import 'package:campus_wave/screens/my_appointments_screen.dart';
+import 'package:campus_wave/screens/admin_dashboard_screen.dart';
+import 'package:campus_wave/screens/admin_admissions_screen.dart';
+import 'package:campus_wave/screens/admin_campus_news_screen.dart';
+import 'package:campus_wave/screens/admin_campus_info_screen.dart';
+import 'package:campus_wave/screens/professor_appointments_approval_screen.dart';
 import 'package:campus_wave/screens/settings_screen.dart';
 import 'package:campus_wave/screens/professors_screen.dart';
-import 'package:campus_wave/screens/appointments_screen.dart';
+import 'package:campus_wave/screens/unified_appointments_screen.dart';
+import 'package:campus_wave/screens/professor_appointments_screen.dart';
+import 'package:campus_wave/screens/teacher_appointment_management_screen.dart';
+import 'package:campus_wave/screens/browse_teacher_appointments_screen.dart';
+import 'package:campus_wave/screens/professor_migration_screen.dart';
 import 'package:campus_wave/screens/search_screen.dart';
 import 'package:campus_wave/screens/cafeteria_screen.dart';
 import 'package:campus_wave/screens/library_screen.dart';
 import 'package:campus_wave/screens/chatbot_screen.dart';
 import 'package:campus_wave/screens/event_detail_screen.dart';
 import 'package:campus_wave/screens/news_detail_screen.dart';
+import 'package:campus_wave/screens/admission_form_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:campus_wave/screens/campus_news_screen.dart';
 
 // Helper to slugify campus names (duplicate of private logic used elsewhere).
 String campusSlug(String name) {
@@ -56,6 +68,7 @@ final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 GoRouter createRouter() {
   final auth = FirebaseAuth.instance;
+  final db = FirebaseFirestore.instance;
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -81,6 +94,31 @@ GoRouter createRouter() {
         name: 'createAccount',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (ctx, state) => const SignupScreen(),
+      ),
+      // Admin routes (top-level)
+      GoRoute(
+        path: '/admin',
+        name: 'adminDashboard',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (ctx, state) => const AdminDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/admin/admissions',
+        name: 'adminAdmissions',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (ctx, state) => const AdminAdmissionsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/news',
+        name: 'adminNews',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (ctx, state) => const AdminCampusNewsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/campusInfo',
+        name: 'adminCampusInfo',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (ctx, state) => const AdminCampusInfoScreen(),
       ),
       // Shell with persistent navigation (BottomNavigationBar / NavigationRail)
       ShellRoute(
@@ -118,7 +156,41 @@ GoRouter createRouter() {
             name: 'appointments',
             pageBuilder: (ctx, state) => NoTransitionPage(
               key: state.pageKey,
-              child: const AppointmentsScreen(),
+              child: const UnifiedAppointmentsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/professorAppointments',
+            name: 'professorAppointments',
+            pageBuilder: (ctx, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const ProfessorAppointmentsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/professorApprovals',
+            name: 'professorApprovals',
+            pageBuilder: (ctx, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const ProfessorAppointmentsApprovalScreen(),
+            ),
+          ),
+          // Teacher appointment management (new system - independent)
+          GoRoute(
+            path: '/teacherAppointmentManagement',
+            name: 'teacherAppointmentManagement',
+            pageBuilder: (ctx, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const TeacherAppointmentManagementScreen(),
+            ),
+          ),
+          // Student browse and book teacher appointments
+          GoRoute(
+            path: '/browseTeacherAppointments',
+            name: 'browseTeacherAppointments',
+            pageBuilder: (ctx, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const BrowseTeacherAppointmentsScreen(),
             ),
           ),
           GoRoute(
@@ -151,6 +223,23 @@ GoRouter createRouter() {
             pageBuilder: (ctx, state) => NoTransitionPage(
               key: state.pageKey,
               child: const LibraryScreen(),
+            ),
+          ),
+          // Admission forms: new and saved (offline via sqflite)
+          GoRoute(
+            path: '/admissions/new',
+            name: 'admission_form_new',
+            pageBuilder: (ctx, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const AdmissionFormScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admissions/saved',
+            name: 'admission_form_saved',
+            pageBuilder: (ctx, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const SavedAdmissionFormsScreen(),
             ),
           ),
           GoRoute(
@@ -188,6 +277,14 @@ GoRouter createRouter() {
             },
           ),
           GoRoute(
+            path: '/news',
+            name: 'news',
+            pageBuilder: (ctx, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const CampusNewsScreen(),
+            ),
+          ),
+          GoRoute(
             path: '/settings',
             name: 'settings',
             pageBuilder: (ctx, state) => NoTransitionPage(
@@ -209,6 +306,14 @@ GoRouter createRouter() {
             pageBuilder: (ctx, state) => NoTransitionPage(
               key: state.pageKey,
               child: const UserProfileScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/professorMigration',
+            name: 'professorMigration',
+            pageBuilder: (ctx, state) => NoTransitionPage(
+              key: state.pageKey,
+              child: const ProfessorMigrationScreen(),
             ),
           ),
           GoRoute(
@@ -288,8 +393,9 @@ GoRouter createRouter() {
         ],
       ),
     ],
-    redirect: (ctx, state) {
-      final loggedIn = auth.currentUser != null;
+    redirect: (ctx, state) async {
+      final user = auth.currentUser;
+      final loggedIn = user != null;
       final loggingIn = state.matchedLocation.startsWith('/login') ||
           state.matchedLocation.startsWith('/signup') ||
           state.matchedLocation.startsWith('/createAccount');
@@ -297,9 +403,40 @@ GoRouter createRouter() {
       if (!loggedIn && !loggingIn) {
         return '/login';
       }
+
+      // Role-based landing when coming from login/signup
       if (loggedIn && loggingIn) {
-        return '/home';
+        try {
+          final snap = await db.collection('users').doc(user.uid).get();
+          final data = snap.data() ?? {};
+          final role = (data['role'] ?? 'student') as String;
+          switch (role) {
+            case 'admin':
+              return '/admin';
+            case 'professor':
+              // Professor dashboard removed; send to home
+              return '/home';
+            default:
+              return '/home';
+          }
+        } catch (_) {
+          return '/home';
+        }
       }
+
+      // Guard professor-only routes for non-professors
+      if (loggedIn && state.matchedLocation.startsWith('/professor')) {
+        try {
+          final snap = await db.collection('users').doc(user.uid).get();
+          final role = (snap.data()?['role'] ?? 'student') as String;
+          if (role != 'professor') {
+            return '/home';
+          }
+        } catch (_) {
+          return '/home';
+        }
+      }
+
       return null;
     },
   );

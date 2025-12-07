@@ -5,6 +5,7 @@ import 'package:campus_wave/widgets/lgs_image.dart';
 import 'package:campus_wave/widgets/app_search_delegate.dart';
 import 'package:campus_wave/widgets/breadcrumbs.dart';
 import 'package:campus_wave/router.dart' show campusSlug;
+import 'package:campus_wave/widgets/section_header.dart';
 
 String assetCoverForCampus(String name) {
   switch (name.trim()) {
@@ -92,6 +93,16 @@ class FacilitiesScreen extends StatefulWidget {
 
 class _FacilitiesScreenState extends State<FacilitiesScreen> {
   List<Campus> get _campuses => campuses;
+
+  @override
+  void initState() {
+    super.initState();
+    // Prefetch campus cover images for offline use
+    for (final c in _campuses) {
+      LgsImage.cacheImage(c.imageUrl);
+      // Assets are bundled; no need to prefetch.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -221,8 +232,7 @@ class CampusFacilitiesDetail extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Facility Highlights',
-                      style: Theme.of(context).textTheme.headlineSmall),
+                  const SectionHeader(label: 'Facility Highlights'),
                   const SizedBox(height: 16),
                   ...campus.facilityHighlights.map((h) => Card(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -235,8 +245,7 @@ class CampusFacilitiesDetail extends StatelessWidget {
                         ),
                       )),
                   const SizedBox(height: 24),
-                  Text('Gallery',
-                      style: Theme.of(context).textTheme.headlineSmall),
+                  const SectionHeader(label: 'Gallery'),
                   const SizedBox(height: 12),
                   SizedBox(
                     height: 220,
@@ -296,7 +305,7 @@ class CampusFacilitiesDetail extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 16),
-                  const Text('Related'),
+                  const SectionHeader(label: 'Related'),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,

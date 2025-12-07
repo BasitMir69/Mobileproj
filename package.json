@@ -1,0 +1,13 @@
+{
+  "name": "campus-wave-email-watcher",
+  "version": "1.0.0",
+  "description": "Watches Firestore for admission submissions and sends emails",
+  "main": "email-watcher.js",
+  "scripts": {
+    "start": "node email-watcher.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "nodemailer": "^6.9.0"
+  }
+}

@@ -9,6 +9,15 @@ import 'package:campus_wave/data/campuses.dart';
 import 'package:campus_wave/widgets/app_search_delegate.dart';
 import 'package:campus_wave/router.dart' show campusSlug;
 import 'package:campus_wave/widgets/spacing.dart';
+import 'package:campus_wave/widgets/elevated_action_card.dart';
+import 'package:campus_wave/data/admission_form_db.dart';
+import 'package:campus_wave/data/admission_form.dart';
+import 'package:campus_wave/widgets/hero_header.dart';
+import 'package:campus_wave/widgets/section_header.dart';
+import 'package:campus_wave/widgets/app_card.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:campus_wave/services/firestore_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,6 +27,26 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  String _role = 'student';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final snap =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final data = snap.data() ?? {};
+      final r = (data['role'] as String?) ?? 'student';
+      if (mounted) setState(() => _role = r);
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
@@ -46,110 +75,180 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(
-                height: 220,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    LgsImage(
-                      assetPath: 'assets/lgs/campuses/johar_town/cover.jpg',
-                      networkUrl:
-                          'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=1200',
-                      fit: BoxFit.cover,
-                    ),
-                    Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Color.fromARGB(170, 0, 0, 0),
-                            Colors.transparent,
-                          ],
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Align(
-                        alignment: Alignment.bottomLeft,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
-                              'Innovate. Learn. Lead.',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 6),
-                            Text(
-                              'Your guide to campuses, facilities, and events.',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              HeroHeader(
+                title: 'Find the right school',
+                subtitle: 'Browse campuses, compare, and apply from anywhere',
+                assetPath: 'assets/Lgs Picscampus/LGS Johar Town.png',
+                networkUrl:
+                    'https://images.unsplash.com/photo-1596495578065-8c3d83df9de1?w=1200',
+                ctaLabel: 'Start Admission',
+                onCta: () => context.push('/admissions/new'),
               ),
+
               const SizedBox(height: AppSpacing.v12),
-              const Divider(height: 1),
-              const SizedBox(height: AppSpacing.v12),
-              // Section: Quick Access
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const _SectionHeader(label: 'Quick Access'),
-                  const SizedBox(height: AppSpacing.v8),
-                  // Streamlined quick access: Campus Info now implicitly includes facilities.
-                  SizedBox(
-                    height: 140,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
+              // Section: Campus News (published)
+              const SectionHeader(label: 'Campus News'),
+              const SizedBox(height: AppSpacing.v8),
+              StreamBuilder<QuerySnapshot>(
+                stream: FirestoreService.streamPublishedCampusNews(limit: 5),
+                builder: (context, snap) {
+                  if (!snap.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final docs = snap.data!.docs;
+                  if (docs.isEmpty) {
+                    return Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.campaign_outlined),
+                        title: const Text('No published news yet'),
+                        subtitle: const Text('Check back soon'),
+                      ),
+                    );
+                  }
+                  return Card(
+                    child: Column(
                       children: [
-                        SizedBox(
-                          width: 180,
-                          child: _NavCard(
-                            icon: Icons.map,
-                            title: l10n.campusInfo,
-                            subtitle: 'Campuses & their facilities',
-                            color: primary,
-                            onTap: () => context.pushNamed('campusInfo'),
-                          ),
-                        ),
-                        // Removed duplicate Professors and Appointments from Discover
-                        SizedBox(
-                          width: 180,
-                          child: _NavCard(
-                            icon: Icons.smart_toy_outlined,
-                            title: l10n.aiChatbot,
-                            subtitle: 'Ask campus questions',
-                            color: primary,
-                            onTap: () => context.pushNamed('chatbot'),
-                          ),
-                        ),
+                        ...docs.map((d) {
+                          final data = d.data() as Map<String, dynamic>;
+                          final title = data['title'] ?? 'News';
+                          final content = data['content'] ?? '';
+                          final campus = data['campus'] ?? 'All Campuses';
+                          return ListTile(
+                            leading: const Icon(Icons.article_outlined),
+                            title: Text(title),
+                            subtitle: Text(
+                                '$campus • ${content.toString().length > 80 ? content.toString().substring(0, 80) + '…' : content}'),
+                            onTap: () => context.pushNamed(
+                              'newsDetail',
+                              extra: {'title': title, 'body': content},
+                            ),
+                          );
+                        }).toList(),
                       ],
                     ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: AppSpacing.v12),
+
+              // Quick actions grid
+              GridView.count(
+                crossAxisCount: 2,
+                childAspectRatio: 1.8,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  if (_role != 'professor')
+                    if (_role != 'professor')
+                      ElevatedActionCard(
+                        icon: Icons.edit,
+                        title: 'New Admission',
+                        subtitle: 'Start a new application',
+                        onTap: () => context.push('/admissions/new'),
+                      ),
+                  if (_role != 'professor')
+                    ElevatedActionCard(
+                      icon: Icons.folder,
+                      title: 'Saved Forms',
+                      subtitle: 'Offline admission drafts',
+                      onTap: () => context.push('/admissions/saved'),
+                    ),
+                  ElevatedActionCard(
+                    icon: Icons.map,
+                    title: l10n.campusInfo,
+                    subtitle: 'Campuses & facilities',
+                    onTap: () => context.pushNamed('campusInfo'),
+                  ),
+                  if (_role != 'professor')
+                    ElevatedActionCard(
+                      icon: Icons.calendar_today,
+                      title: l10n.appointments,
+                      subtitle: 'Book & manage meetings',
+                      onTap: () => context.pushNamed('appointments'),
+                    ),
+                  if (_role != 'professor')
+                    ElevatedActionCard(
+                      icon: Icons.person_search,
+                      title: 'Professors',
+                      subtitle: 'Browse faculty directory',
+                      onTap: () => context.pushNamed('professors'),
+                    ),
+                  ElevatedActionCard(
+                    icon: Icons.smart_toy_outlined,
+                    title: l10n.aiChatbot,
+                    subtitle: 'Ask campus questions',
+                    onTap: () => context.pushNamed('chatbot'),
                   ),
                 ],
               ),
+
+              const SizedBox(height: AppSpacing.v12),
+
+              // Section: Your Admissions (preview) — hidden for professors
+              if (_role != 'professor') ...[
+                const SectionHeader(label: 'Your Admissions'),
+                const SizedBox(height: AppSpacing.v8),
+                FutureBuilder<List<AdmissionForm>>(
+                  future: AdmissionFormDb.instance.all(),
+                  builder: (context, snap) {
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final items = snap.data ?? const [];
+                    if (items.isEmpty) {
+                      return Card(
+                        child: ListTile(
+                          title: const Text('No saved forms yet'),
+                          subtitle: const Text('Start a new admission form'),
+                          trailing:
+                              const Icon(Icons.arrow_forward_ios, size: 16),
+                          onTap: () => context.push('/admissions/new'),
+                        ),
+                      );
+                    }
+                    final preview = items.take(2).toList();
+                    return Card(
+                      child: Column(
+                        children: [
+                          ...preview.map((f) => ListTile(
+                                leading: const Icon(Icons.description_outlined),
+                                title:
+                                    Text('${f.childName} • ${f.gradeApplying}'),
+                                subtitle: Text(
+                                    'Campus: ${f.campus}  •  Parent: ${f.parentName}'),
+                              )),
+                          const Divider(height: 1),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () =>
+                                  context.push('/admissions/saved'),
+                              icon: const Icon(Icons.folder_open),
+                              label: const Text('View all saved forms'),
+                            ),
+                          )
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
               // Section: Explore Campuses
               const SizedBox(height: AppSpacing.v12),
-              const Divider(height: 1),
-              const SizedBox(height: AppSpacing.v12),
-              const _SectionHeader(label: 'Explore Campuses'),
+              Container(
+                height: 1,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.06),
+              ),
+              const SectionHeader(label: 'Explore Campuses'),
               const SizedBox(height: AppSpacing.v8),
               SizedBox(
-                height: 140,
+                height: 160,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: campuses.length,
@@ -186,68 +285,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           asset = c.photoCaptions.keys.first;
                         }
                     }
+                    final slug = campusSlug(c.name);
                     return _CampusShortcutCard(
                       title: c.name,
                       imageUrl: c.imageUrl,
                       assetPath: asset,
-                      onTap: () =>
-                          context.push('/campus/${campusSlug(c.name)}'),
+                      onTap: () => context.push('/campus/$slug'),
                     );
                   },
                 ),
-              ),
-              const SizedBox(height: AppSpacing.v24),
-              const Divider(height: 1),
-              const SizedBox(height: AppSpacing.v12),
-              const _SectionHeader(label: 'Student Services'),
-              const SizedBox(height: AppSpacing.v8),
-              SizedBox(
-                height: 140,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    SizedBox(
-                      width: 180,
-                      child: _NavCard(
-                        icon: Icons.person_search,
-                        title: 'Professors',
-                        subtitle: 'Browse faculty directory',
-                        color: primary,
-                        onTap: () => context.pushNamed('professors'),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 180,
-                      child: _NavCard(
-                        icon: Icons.calendar_today,
-                        title: l10n.appointments,
-                        subtitle: 'Book and review appointments',
-                        color: primary,
-                        onTap: () => context.pushNamed('appointments'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.v24),
-              _InfoCard(
-                imageUrl:
-                    'https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?w=1200',
-                title: l10n.upcomingEvents,
-                body:
-                    'Guest lecture by Dr. Riffat – Auditorium A, Oct 28, 2:00 PM',
-                buttonLabel: l10n.viewAll,
-                primary: primary,
-                onPressed: () {
-                  context.pushNamed(
-                    'eventDetail',
-                    extra: {
-                      'title': 'Upcoming Events',
-                      'body':
-                          'Guest lecture by Dr. Riffat – Auditorium A, Oct 28, 2:00 PM',
-                    },
-                  );
-                },
               ),
               const SizedBox(height: AppSpacing.v12),
               _InfoCard(
@@ -361,108 +407,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _NavCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  final VoidCallback? onTap;
-
-  const _NavCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    // Emerald-tinted cards: dark uses deep emerald, light uses light emerald tint
-    final cardColor = isDark
-        ? const Color(0xFF0B3B2C) // darkish emerald inside the box
-        : const Color(0xFFE6F5F2); // lightish emerald inside the box
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final subtitleColor =
-        isDark ? Colors.white70 : Colors.black87.withValues(alpha: 0.7);
-    final borderColor = isDark
-        ? const Color(0xFF10B981).withValues(alpha: 0.18)
-        : const Color(0xFF0F766E).withValues(alpha: 0.20);
-
-    return Semantics(
-      button: true,
-      label: '$title navigation card',
-      hint: 'Opens $title section: $subtitle',
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 6.0),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor),
-            boxShadow: isDark
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.25),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : [
-                    BoxShadow(
-                      color: const Color(0xFF0F766E).withValues(alpha: 0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Icon(icon, color: color),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: textColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: subtitleColor,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Removed unused _QuickActionChip widget (dead code lint)
+// Removed unused _NavCard + _QuickActionChip widgets (merged into ElevatedActionCard grid)
 
 class _InfoCard extends StatelessWidget {
   final String imageUrl;
@@ -484,20 +429,10 @@ class _InfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final cardColor = isDark
-        ? const Color(0xFF0B3B2C) // dark emerald for card
-        : const Color(0xFFE6F5F2); // light emerald for card
-    final textColor = isDark ? Colors.white : Colors.black87;
-    final bodyColor =
-        isDark ? Colors.white70 : Colors.black87.withValues(alpha: 0.75);
+    final textColor = theme.colorScheme.onSurface;
+    final bodyColor = theme.colorScheme.onSurface.withValues(alpha: 0.75);
 
-    return Card(
-      color: cardColor,
-      elevation: isDark ? 0 : 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -564,17 +499,7 @@ class _InfoCard extends StatelessWidget {
 }
 
 // Reusable section header for consistent style
-class _SectionHeader extends StatelessWidget {
-  final String label;
-  const _SectionHeader({required this.label});
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-    );
-  }
-}
+// _SectionHeader removed; using shared SectionHeader widget
 
 class _CampusShortcutCard extends StatelessWidget {
   final String title;
@@ -593,10 +518,8 @@ class _CampusShortcutCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF0B3B2C) : const Color(0xFFE6F5F2);
-    final border = isDark
-        ? const Color(0xFF10B981).withValues(alpha: 0.18)
-        : const Color(0xFF0F766E).withValues(alpha: 0.2);
+    final bg = theme.colorScheme.surface;
+    final border = theme.colorScheme.primary.withValues(alpha: 0.12);
 
     return Semantics(
       button: true,

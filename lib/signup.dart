@@ -6,6 +6,7 @@ import 'package:campus_wave/l10n/app_localizations.dart';
 import 'package:campus_wave/theme/theme_provider.dart';
 import 'package:campus_wave/widgets/cw_logo.dart';
 import 'package:campus_wave/widgets/app_button.dart';
+import 'package:campus_wave/services/firestore_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -36,10 +37,30 @@ class _SignupScreenState extends State<SignupScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
-      await _auth.createUserWithEmailAndPassword(
+      final cred = await _auth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
+      // Update display name and save to Firestore
+      final name = _nameController.text.trim();
+      await cred.user?.updateDisplayName(name);
+
+      if (cred.user != null) {
+        try {
+          await FirestoreService.setUserProfile(
+            userId: cred.user!.uid,
+            displayName: name,
+            email: cred.user!.email ?? '',
+            role: 'student', // Default role
+          );
+          debugPrint('✅ User profile saved to Firestore: ${cred.user!.uid}');
+        } catch (firestoreError) {
+          debugPrint('❌ Failed to save user profile: $firestoreError');
+          // Continue anyway - user is already created in Auth
+        }
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.signupSuccess)),

@@ -13,11 +13,13 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        // Enable Java 17 and core library desugaring (required by notifications)
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions { jvmTarget = JavaVersion.VERSION_11.toString() }
+    kotlinOptions { jvmTarget = JavaVersion.VERSION_17.toString() }
 
     defaultConfig {
         applicationId = "com.example.flutter_application_1"
@@ -42,3 +44,8 @@ android {
 }
 
 flutter { source = "../.." }
+
+dependencies {
+    // Required for core library desugaring (java.time APIs used by plugins)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+}

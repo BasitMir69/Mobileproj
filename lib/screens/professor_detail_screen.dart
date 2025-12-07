@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:campus_wave/models/professor.dart';
 import 'package:campus_wave/data/campus_professors.dart';
+import 'package:campus_wave/services/notification_service.dart';
+import 'package:campus_wave/services/firestore_service.dart';
 
 class ProfessorDetailScreen extends StatefulWidget {
   final Professor professor;
@@ -65,22 +65,47 @@ class _ProfessorDetailScreenState extends State<ProfessorDetailScreen> {
     );
     if (confirm != true) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('bookings') ?? '[]';
-    final List list = json.decode(raw) as List;
-    final booking = {
-      'professorId': widget.professor.id,
-      'professorName': widget.professor.name,
-      'slot': slot,
-      'userUid': user.uid,
-      'userEmail': user.email,
-      'userDisplayName': user.displayName,
-      'createdAt': DateTime.now().toIso8601String(),
-    };
-    list.add(booking);
-    await prefs.setString('bookings', json.encode(list));
+    try {
+      // Save booking to Firestore
+      await FirestoreService.createAppointment(
+        professorId: widget.professor.id,
+        campus: widget.professor.office
+            .split(',')
+            .first
+            .trim(), // Extract campus from office field
+        location: widget.professor.office,
+        requestedSlot: slot,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Booking failed: $e')),
+      );
+      return;
+    }
 
     if (!mounted) return;
+    // Schedule a reminder ~10 minutes before the appointment if possible
+    DateTime? when = parseWeeklySlotToNextDateTime(slot);
+    // If slot is explicit date time (e.g., '2025-12-08 10:00'), parse that
+    when ??= parseExplicitDateTimeLocal(slot);
+    if (when != null) {
+      final reminderTime = when.subtract(const Duration(minutes: 10));
+      if (reminderTime.isAfter(DateTime.now())) {
+        await NotificationService.requestPermission();
+        await NotificationService.scheduleAt(
+          dateTime: reminderTime,
+          title: 'Upcoming Appointment',
+          body:
+              'With ${widget.professor.name} at ${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}',
+          id: DateTime.now().millisecondsSinceEpoch.remainder(1 << 31),
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Reminder scheduled 10 minutes before.')),
+        );
+      }
+    }
     // Navigate to My Appointments as confirmation
     context.go('/appointments');
   }
@@ -148,22 +173,51 @@ class _ProfessorDetailScreenState extends State<ProfessorDetailScreen> {
             const SizedBox(height: 18),
             Text('Available Slots', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: p.availableSlots.map((s) {
-                return Semantics(
-                  button: true,
-                  label: 'Book slot $s',
-                  hint: 'Tap to reserve $s with ${p.name}',
-                  child: ActionChip(
-                    avatar: const Icon(Icons.schedule, size: 18),
-                    label: Text(s),
-                    onPressed: () => _bookSlot(s),
-                    backgroundColor: theme.colorScheme.surface,
-                  ),
+            StreamBuilder<List<Map<String, dynamic>>>(
+              stream: FirestoreService.streamProfessorAppointments(p.id),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                // Collect slots that are already booked (pending or confirmed)
+                final bookedSlots = <String>{};
+                if (snapshot.hasData) {
+                  for (final appt in snapshot.data!) {
+                    final status = (appt['status'] ?? 'pending') as String;
+                    if (status == 'pending' || status == 'confirmed') {
+                      final slot = appt['requestedSlot'];
+                      if (slot is String) bookedSlots.add(slot);
+                    }
+                  }
+                }
+
+                final openSlots = p.availableSlots
+                    .where((slot) => !bookedSlots.contains(slot))
+                    .toList();
+
+                if (openSlots.isEmpty) {
+                  return const Text('No slots available right now.');
+                }
+
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: openSlots.map((s) {
+                    return Semantics(
+                      button: true,
+                      label: 'Book slot $s',
+                      hint: 'Tap to reserve $s with ${p.name}',
+                      child: ActionChip(
+                        avatar: const Icon(Icons.schedule, size: 18),
+                        label: Text(s),
+                        onPressed: () => _bookSlot(s),
+                        backgroundColor: theme.colorScheme.surface,
+                      ),
+                    );
+                  }).toList(),
                 );
-              }).toList(),
+              },
             ),
           ],
         ),

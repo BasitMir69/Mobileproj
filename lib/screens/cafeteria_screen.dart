@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:campus_wave/widgets/section_header.dart';
 
 class CafeteriaScreen extends StatelessWidget {
   const CafeteriaScreen({super.key});
@@ -48,10 +49,7 @@ class CafeteriaScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Cafeteria',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
+            const SectionHeader(label: 'Cafeteria'),
             const SizedBox(height: 8),
             const Text(
               'A clean, healthy and welcoming cafeteria offering nutritious meals and snacks for students and staff.',

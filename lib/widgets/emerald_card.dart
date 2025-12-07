@@ -9,11 +9,12 @@ class EmeraldCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final cardColor =
-        isDark ? const Color(0xFF0B3B2C) : const Color(0xFFE6F5F2);
-    final borderColor = isDark
-        ? const Color(0xFF10B981).withValues(alpha: 0.18)
-        : const Color(0xFF0F766E).withValues(alpha: 0.20);
+    // Use theme surface as base, add a subtle tint based on primary for light mode
+    final cardColor = isDark
+        ? theme.colorScheme.surface
+        : theme.colorScheme.surface.withValues(alpha: 0.98);
+    final borderColor =
+        theme.colorScheme.primary.withValues(alpha: isDark ? 0.12 : 0.18);
 
     return Stack(
       clipBehavior: Clip.none,
@@ -44,8 +45,8 @@ class EmeraldCard extends StatelessWidget {
               ),
               child: Text(
                 badgeText!,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: theme.colorScheme.onPrimary,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.3,

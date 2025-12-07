@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:campus_wave/widgets/lgs_image.dart';
 import 'package:campus_wave/data/campuses.dart';
 import 'package:campus_wave/widgets/user_avatar_button.dart';
+import 'package:campus_wave/widgets/section_header.dart';
 import 'package:go_router/go_router.dart';
 import 'package:campus_wave/router.dart' show campusSlug;
+import 'package:campus_wave/widgets/app_card.dart';
+import 'package:campus_wave/widgets/app_chip.dart';
 
 String assetCoverForCampus(String name) {
   // New explicit mapping to PNG covers in assets/Lgs Picscampus/
@@ -179,7 +182,7 @@ class CampusDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: Text(campus.name),
@@ -198,7 +201,6 @@ class CampusDetailScreen extends StatelessWidget {
             tabs: [
               Tab(text: 'Overview'),
               Tab(text: 'Facilities'),
-              Tab(text: 'Staff'),
               Tab(text: 'History'),
             ],
           ),
@@ -207,7 +209,6 @@ class CampusDetailScreen extends StatelessWidget {
           children: [
             _OverviewTab(campus: campus),
             _FacilitiesTab(campus: campus),
-            _StaffTab(campus: campus),
             _HistoryTab(campus: campus),
           ],
         ),
@@ -251,6 +252,30 @@ class _OverviewTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    String? website;
+    String? mapUrl;
+    if (campus.name.trim().toLowerCase() == 'lgs 1a1') {
+      website = 'https://lahoregrammar.school';
+      mapUrl = 'https://maps.app.goo.gl/net1AFySgpraoJhdA';
+    } else if (campus.name.trim().toLowerCase() == 'lgs jt' ||
+        campus.name.trim().toLowerCase() == 'lgs johar town') {
+      website = 'https://lgsjt.edu.pk';
+      mapUrl = 'https://share.google/MFA6ZEqudGRu5N3p9';
+    } else if (campus.name.trim().toLowerCase() == 'lgs paragon') {
+      website = 'https://lgsgulberg.edu.pk';
+      mapUrl = 'https://share.google/DI74Pjx5yykQjO8eL';
+    } else if (campus.name.trim().toLowerCase() == 'lgs gulberg campus 2') {
+      website = 'https://lgsgulberg.edu.pk';
+      mapUrl = 'https://share.google/NaGPW8XlikuhO35ym';
+    } else if (campus.name.trim().toLowerCase() == 'lgs ib phase' ||
+        campus.name.trim().toLowerCase() == 'lgs ib phase (lahore)') {
+      mapUrl = 'https://maps.app.goo.gl/MWG5Y8A28aTbuv5K7';
+    } else if (campus.name.trim().toLowerCase() == 'lgs 42 b-iii gulberg' ||
+        campus.name.trim().toLowerCase() == 'lgs 42b gulberg iii') {
+      website = 'https://lgsgulberg.edu.pk';
+      mapUrl = 'https://share.google/zGpSjWlu3b1En7vCE';
+    }
+
     return CustomScrollView(
       slivers: [
         SliverAppBar(
@@ -280,11 +305,56 @@ class _OverviewTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(campus.location, style: theme.textTheme.bodySmall),
+                if (website != null || mapUrl != null) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (website != null)
+                        LinkChip(
+                            icon: Icons.public, label: 'Website', url: website),
+                      if (mapUrl != null)
+                        LinkChip(
+                            icon: Icons.location_on,
+                            label: 'Open in Maps',
+                            url: mapUrl),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Text(campus.description, style: theme.textTheme.bodyLarge),
                 const SizedBox(height: 12),
-                // Removed quick actions: Book Appointment, View Library, Message Office
-                // per request to declutter Campus Info overview.
+                const SectionHeader(label: 'About Campus'),
+                const SizedBox(height: 8),
+                AppSectionCard(
+                  child: Text(
+                    campus.history.length > 300
+                        ? campus.history.substring(0, 300) + '…'
+                        : campus.history,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const SectionHeader(label: 'Academic Highlights'),
+                const SizedBox(height: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: campus.academicHighlights
+                      .take(4)
+                      .map((h) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.star_outline, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(h)),
+                              ],
+                            ),
+                          ))
+                      .toList(),
+                ),
               ],
             ),
           ),
@@ -299,13 +369,12 @@ class _FacilitiesTab extends StatelessWidget {
   const _FacilitiesTab({required this.campus});
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Facility Highlights', style: theme.textTheme.titleMedium),
+          const SectionHeader(label: 'Facility Highlights'),
           const SizedBox(height: 8),
           GridView.builder(
             shrinkWrap: true,
@@ -342,22 +411,7 @@ class _FacilitiesTab extends StatelessWidget {
   }
 }
 
-class _StaffTab extends StatelessWidget {
-  final Campus campus;
-  const _StaffTab({required this.campus});
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: ElevatedButton.icon(
-        onPressed: () => context.push(
-          '/campus/${campusSlug(campus.name)}/professors',
-        ),
-        icon: const Icon(Icons.person_search),
-        label: const Text('Open Professors Directory'),
-      ),
-    );
-  }
-}
+// Staff tab removed from Campus Info to mask staff directory for professors.
 
 // Gallery tab removed — gallery now lives in Facilities screen only.
 
@@ -380,7 +434,7 @@ class _HistoryTabState extends State<_HistoryTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('History', style: theme.textTheme.titleMedium),
+          const SectionHeader(label: 'History'),
           const SizedBox(height: 8),
           Text(_expanded ? text : preview, style: theme.textTheme.bodyMedium),
           const SizedBox(height: 12),

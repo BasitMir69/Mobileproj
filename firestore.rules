@@ -1,0 +1,115 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper: auth and roles
+    function isSignedIn() { return request.auth != null; }
+    function userRole(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    }
+    function isAdmin() { return isSignedIn() && userRole(request.auth.uid) == 'admin'; }
+    function isProfessor() { return isSignedIn() && userRole(request.auth.uid) == 'professor'; }
+    function isStudent() { return isSignedIn() && userRole(request.auth.uid) == 'student'; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    
+    // Users collection - profiles
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles
+      allow read: if isSignedIn();
+      
+      // Users can create and update their own profile
+      allow create, update: if isSignedIn() && isOwner(userId);
+      
+      // No delete for users
+      allow delete: if false;
+    }
+    
+    // Professors collection - professor profiles
+    match /professors/{professorId} {
+      allow read: if isSignedIn();
+      // Restrict professor creation to admin
+      allow create: if isAdmin();
+      // Professors can update their own profile
+      allow update: if isProfessor() && resource.data.userID == request.auth.uid;
+      // No delete for professors
+      allow delete: if false;
+    }
+    
+    // Appointments collection
+    match /appointmentID/{appointmentId} {
+      // Read allowed to signed-in; UI filters by ownership/target
+      allow read: if isSignedIn();
+
+      // Create: only students can create their own pending appointment
+      allow create: if isStudent() &&
+                    request.resource.data.studentID == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['studentID','ProffessorID','campus','location','requestedSlot','status']) &&
+                    request.resource.data.status == 'pending';
+
+      // Update:
+      // - Professor approves/rejects only appointments targeted to them
+      // - Student updates only their own appointment (e.g., cancel)
+      allow update: if isSignedIn() && (
+        (isProfessor() && resource.data.ProffessorID == request.auth.uid && request.resource.data.keys().hasAny(['status'])) ||
+        (isStudent() && resource.data.studentID == request.auth.uid)
+      );
+
+      // Delete: only owning student
+      allow delete: if isStudent() && resource.data.studentID == request.auth.uid;
+    }
+
+    // Teacher appointment management collection (if used)
+    match /teacherAppointments/{docId} {
+      allow read: if isSignedIn();
+      // Student creates their own pending appointment
+      allow create: if isStudent() &&
+                    request.resource.data.studentID == request.auth.uid &&
+                    request.resource.data.keys().hasAll(['studentID','professorId','campus','location','requestedSlot','status']) &&
+                    request.resource.data.status == 'pending';
+      // Update rules mirror appointmentID
+      allow update: if isSignedIn() && (
+        (isProfessor() && resource.data.professorId == request.auth.uid && request.resource.data.keys().hasAny(['status'])) ||
+        (isStudent() && resource.data.studentID == request.auth.uid)
+      );
+      allow delete: if isStudent() && resource.data.studentID == request.auth.uid;
+    }
+    
+    // Admission submissions collection
+    match /admission_submissions/{submissionId} {
+      // Only students can create submissions
+      allow create: if isStudent();
+      
+      // Read: admin all; student only own
+      allow read: if isSignedIn() && (isAdmin() || (isStudent() && resource.data.userId == request.auth.uid));
+      
+      // Update status (approve/reject): admin only
+      allow update: if isAdmin();
+      
+      // No deletes from clients
+      allow delete: if false;
+    }
+    
+    // Campus news
+    match /campus_news/{newsId} {
+      // Published news visible to all signed-in users; UI only shows published
+      allow read: if isSignedIn();
+      
+      // Only admins can create/update/delete campus news
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Campus info (admin editable, user readable)
+    match /campus_info/{slug} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Deny all other access by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

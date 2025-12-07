@@ -7,6 +7,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:campus_wave/widgets/cw_logo.dart';
 import 'package:campus_wave/widgets/app_button.dart';
 import 'package:go_router/go_router.dart';
+import 'package:campus_wave/widgets/google_sign_in_button.dart';
+import 'package:campus_wave/services/firestore_service.dart';
 
 class LoginScreenNew extends StatefulWidget {
   const LoginScreenNew({super.key});
@@ -22,12 +24,22 @@ class _LoginScreenNewState extends State<LoginScreenNew> {
   final TextEditingController _passwordController = TextEditingController();
   bool _obscure = true;
   bool _isLoading = false;
+  String _userRole = 'student'; // auto-detected after login
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<String> _detectRole(String uid) async {
+    // Use stored user profile role only (Option B)
+    final userProfile = await FirestoreService.getUserProfile(uid);
+    final role = (userProfile != null && userProfile['role'] is String)
+        ? (userProfile['role'] as String)
+        : 'student';
+    return role;
   }
 
   Future<void> _login() async {
@@ -38,12 +50,30 @@ class _LoginScreenNewState extends State<LoginScreenNew> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
+      // Auto-detect role from Firestore (professor vs student)
+      if (_auth.currentUser != null) {
+        try {
+          _userRole = await _detectRole(_auth.currentUser!.uid);
+          await FirestoreService.setUserProfile(
+            userId: _auth.currentUser!.uid,
+            displayName: _auth.currentUser!.displayName ?? '',
+            email: _auth.currentUser!.email ?? '',
+            role: _userRole,
+          );
+        } catch (e) {
+          debugPrint('❌ Failed to detect/save user role: $e');
+        }
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppLocalizations.of(context)!.loginSuccess)),
       );
       if (!mounted) return;
-      context.go('/home');
+      // Navigate based on role (no professor dashboard)
+      final route = _userRole == 'admin' ? '/admin' : '/home';
+      context.go(route);
     } on FirebaseAuthException catch (e) {
       final l10n = AppLocalizations.of(context)!;
       final msg = e.message ?? l10n.loginFailed;
@@ -68,10 +98,28 @@ class _LoginScreenNewState extends State<LoginScreenNew> {
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
-      await _auth.signInWithCredential(credential);
+      final cred = await _auth.signInWithCredential(credential);
+
+      // Save/update user profile in Firestore with auto-detected role
+      if (cred.user != null) {
+        try {
+          _userRole = await _detectRole(cred.user!.uid);
+          await FirestoreService.setUserProfile(
+            userId: cred.user!.uid,
+            displayName: cred.user!.displayName ?? '',
+            email: cred.user!.email ?? '',
+            role: _userRole,
+          );
+          debugPrint('✅ User profile saved to Firestore: ${cred.user!.uid}');
+        } catch (firestoreError) {
+          debugPrint('❌ Failed to save user profile: $firestoreError');
+          // Continue anyway - user is already authenticated
+        }
+      }
+
       if (!mounted) return;
-      if (!mounted) return;
-      context.go('/home');
+      final route = _userRole == 'admin' ? '/admin' : '/home';
+      context.go(route);
     } catch (e) {
       final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context)
@@ -192,12 +240,10 @@ class _LoginScreenNewState extends State<LoginScreenNew> {
                           onPressed: _login,
                         ),
                         const SizedBox(height: 12),
-                        AppButton(
-                          label: 'Sign in with Google',
-                          secondary: true,
-                          icon: Icons.g_mobiledata,
-                          loading: _isLoading,
+                        GoogleSignInButton(
                           onPressed: _signInWithGoogle,
+                          loading: _isLoading,
+                          label: 'Sign in with Google',
                         ),
                         const SizedBox(height: 20),
                         Row(
@@ -215,12 +261,7 @@ class _LoginScreenNewState extends State<LoginScreenNew> {
                               ? null
                               : () => context.go('/createAccount'),
                         ),
-                        const SizedBox(height: 26),
-                        TextButton(
-                          onPressed:
-                              _isLoading ? null : () => context.go('/home'),
-                          child: Text(l10n.exploreGuest),
-                        ),
+                        const SizedBox(height: 6),
                       ],
                     ),
                   ),

@@ -24,8 +24,10 @@ class AppButton extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.colorScheme.primary;
 
-    final tintedFill =
-        isDark ? const Color(0xFF115E4A) : const Color(0xFFE6F5F2);
+    // Tinted background for secondary buttons derived from primary color
+    final tintedFill = isDark
+        ? primary.withValues(alpha: 0.12)
+        : primary.withValues(alpha: 0.10);
 
     final shape =
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
@@ -44,9 +46,8 @@ class AppButton extends StatelessWidget {
               if (icon != null) ...[
                 Icon(icon,
                     size: 22,
-                    color: secondary
-                        ? (isDark ? Colors.white : const Color(0xFF0F4E45))
-                        : Colors.white),
+                    color:
+                        secondary ? theme.colorScheme.onPrimary : Colors.white),
                 const SizedBox(width: 8),
               ],
               Flexible(
@@ -56,9 +57,8 @@ class AppButton extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.4,
-                    color: secondary
-                        ? (isDark ? Colors.white : const Color(0xFF0F4E45))
-                        : Colors.white,
+                    color:
+                        secondary ? theme.colorScheme.onPrimary : Colors.white,
                   ),
                 ),
               ),
@@ -88,8 +88,7 @@ class AppButton extends StatelessWidget {
         onPressed: loading ? null : onPressed,
         style: OutlinedButton.styleFrom(
           backgroundColor: tintedFill,
-          foregroundColor: isDark ? Colors.white : const Color(0xFF0F4E45),
-          side: BorderSide(color: primary, width: 1.1),
+          foregroundColor: theme.colorScheme.onPrimary,
           padding: const EdgeInsets.symmetric(horizontal: 18),
           shape: shape,
         ),

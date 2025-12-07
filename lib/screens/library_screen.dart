@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:campus_wave/widgets/lgs_image.dart';
+import 'package:campus_wave/widgets/section_header.dart';
 
 class LibraryScreen extends StatelessWidget {
   const LibraryScreen({super.key});
@@ -50,10 +51,7 @@ class LibraryScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'LGS Library',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
+            const SectionHeader(label: 'LGS Library'),
             const SizedBox(height: 8),
             const Text(
               'A quiet, well-stocked library with a wide range of textbooks, reference materials and study spaces. Open to students and staff during school hours.',
