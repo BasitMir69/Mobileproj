@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:campus_wave/theme/locale_provider.dart';
@@ -59,6 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
+          const SectionHeader(label: 'Appearance'),
           const SizedBox(height: 12),
           Card(
             child: SwitchListTile(
@@ -68,7 +70,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onChanged: (v) => themeProvider.setDarkMode(v),
             ),
           ),
-          const SizedBox(height: 12),
           Card(
             child: ListTile(
               title: Text(l10n.language),
@@ -85,6 +86,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          FutureBuilder<Map<String, dynamic>?>(
+            future: _getUserProfile(),
+            builder: (context, snap) {
+              if (snap.hasData) {
+                final role = snap.data?['role'] ?? 'student';
+                if (role == 'professor') {
+                  return Column(
+                    children: [
+                      const SectionHeader(label: 'Appointment Management'),
+                      const SizedBox(height: 12),
+                      Card(
+                        color: Colors.red.shade50,
+                        child: ListTile(
+                          leading: Icon(Icons.delete_forever,
+                              color: Colors.red.shade700),
+                          title: const Text('Clear All Appointments',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: const Text(
+                              'Delete all appointment bookings from Firestore'),
+                          onTap: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Confirm Delete'),
+                                content: const Text(
+                                    'Are you sure you want to delete all appointments? This cannot be undone.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('Delete All'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm != true) return;
+
+                            try {
+                              await FirestoreService.clearAllAppointments();
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'All appointments cleared successfully.')),
+                              );
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $e')),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                }
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          const SectionHeader(label: 'Notifications'),
           const SizedBox(height: 12),
           SwitchListTile(
             title: Text(l10n.notifications),
@@ -168,6 +240,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
             },
           ),
+          const SizedBox(height: 16),
+          const SectionHeader(label: 'Shortcuts'),
           const SizedBox(height: 12),
           Card(
             child: ListTile(
@@ -178,6 +252,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          const SectionHeader(label: 'Tools'),
           // Professor-only: Manage incoming appointment requests
           FutureBuilder<Map<String, dynamic>?>(
             future: _getUserProfile(),
@@ -186,19 +261,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final role = userProfile?['role'] ?? 'student';
 
               if (role == 'professor') {
-                return Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.assignment_outlined),
-                    title: const Text('Manage Appointments'),
-                    subtitle: const Text('Approve or reject student requests'),
-                    onTap: () => context.pushNamed('professorAppointments'),
-                  ),
+                return Column(
+                  children: [
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.assignment_outlined),
+                        title: const Text('Manage Appointments'),
+                        subtitle:
+                            const Text('Approve or reject student requests'),
+                        onTap: () => context.pushNamed('professorAppointments'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                 );
               }
               return const SizedBox.shrink();
             },
           ),
-          const SizedBox(height: 12),
           Card(
             child: ListTile(
               leading: const Icon(Icons.feedback_outlined),
@@ -209,28 +289,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final role = (profile?['role'] ?? 'student') as String;
                 final email = FirebaseAuth.instance.currentUser?.email ?? '';
                 final controller = TextEditingController();
+                int rating = 0;
                 final sent = await showDialog<bool>(
                   context: context,
                   builder: (ctx) {
-                    return AlertDialog(
-                      title: const Text('Send Feedback'),
-                      content: TextField(
-                        controller: controller,
-                        maxLines: 5,
-                        decoration: const InputDecoration(
-                            hintText: 'Write your feedback here...'),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(false),
-                          child: const Text('Cancel'),
+                    return StatefulBuilder(builder: (ctx, setStateDialog) {
+                      return AlertDialog(
+                        title: const Text('Send Feedback'),
+                        content: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(5, (i) {
+                                  final filled = i < rating;
+                                  return IconButton(
+                                    icon: Icon(
+                                      filled ? Icons.star : Icons.star_border,
+                                      color: filled ? Colors.amber : null,
+                                    ),
+                                    onPressed: () => setStateDialog(() {
+                                      rating = i + 1;
+                                    }),
+                                  );
+                                }),
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: controller,
+                                maxLines: 5,
+                                decoration: const InputDecoration(
+                                    hintText: 'Write your feedback here...'),
+                              ),
+                            ],
+                          ),
                         ),
-                        ElevatedButton(
-                          onPressed: () => Navigator.of(ctx).pop(true),
-                          child: const Text('Send'),
-                        ),
-                      ],
-                    );
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(ctx).pop(true),
+                            child: const Text('Send'),
+                          ),
+                        ],
+                      );
+                    });
                   },
                 );
                 if (sent != true) return;
@@ -244,24 +350,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 try {
                   final url = Uri.parse(
                       'https://us-central1-campuswave-9f2b3.cloudfunctions.net/sendFeedbackEmail');
-                  final resp = await http.post(
+                  await http.post(
                     url,
                     headers: {'Content-Type': 'application/json'},
                     body: jsonEncode({
                       'message': msg,
                       'role': role,
                       'userEmail': email,
+                      'rating': rating,
                     }),
                   );
-                  if (resp.statusCode == 200) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Feedback sent. Thank you!')));
-                  } else {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text('Failed to send: ${resp.statusCode}')));
-                  }
+                  // Store to Firestore for admin portal
+                  final uid = FirebaseAuth.instance.currentUser?.uid;
+                  await FirebaseFirestore.instance.collection('feedback').add({
+                    'userId': uid,
+                    'message': msg,
+                    'rating': rating,
+                    'createdAt': FieldValue.serverTimestamp(),
+                  });
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Feedback sent. Thank you!')));
                 } catch (e) {
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -271,46 +380,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          // Admin-only: Professor data migration tool
-          FutureBuilder<Map<String, dynamic>?>(
-            future: _getUserProfile(),
-            builder: (context, snapshot) {
-              final userProfile = snapshot.data;
-              final role = userProfile?['role'] ?? 'student';
-
-              // Show migration tool for professors (can be changed to admin-only)
-              if (role == 'professor') {
-                return Card(
-                  child: ListTile(
-                    leading:
-                        const Icon(Icons.cloud_upload, color: Colors.orange),
-                    title: const Text('Professor Data Migration'),
-                    subtitle:
-                        const Text('Sync static data to Firestore (one-time)'),
-                    onTap: () => context.pushNamed('professorMigration'),
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-          const SizedBox(height: 12),
-          Tooltip(
-            message: 'Delete local booking data',
-            child: ElevatedButton(
-              onPressed: () async {
-                final messenger = ScaffoldMessenger.of(context);
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.remove('bookings');
-                await prefs.remove('professorBookings');
-                messenger.showSnackBar(
-                  const SnackBar(content: Text('Bookings cleared.')),
-                );
-              },
-              child: const Text('Clear Bookings'),
-            ),
-          ),
-          const SizedBox(height: 24),
+          const SectionHeader(label: 'Account'),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
@@ -328,6 +398,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label: Text(l10n.logout),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class SectionHeader extends StatelessWidget {
+  final String label;
+  const SectionHeader({super.key, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 12, 4, 4),
+      child: Text(
+        label,
+        style: theme.textTheme.labelLarge?.copyWith(
+          letterSpacing: 0.8,
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.primary.withOpacity(0.9),
+        ),
       ),
     );
   }

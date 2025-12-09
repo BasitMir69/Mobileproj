@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:campus_wave/data/appointments.dart';
-import 'package:campus_wave/data/current_user.dart';
 import 'package:campus_wave/l10n/app_localizations.dart';
 import 'package:campus_wave/widgets/lgs_image.dart';
 import 'package:campus_wave/data/campuses.dart';
@@ -76,14 +74,255 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               HeroHeader(
-                title: 'Find the right school',
-                subtitle: 'Browse campuses, compare, and apply from anywhere',
+                title: l10n.findRightSchool,
+                subtitle: l10n.browseCompareApply,
                 assetPath: 'assets/Lgs Picscampus/LGS Johar Town.png',
                 networkUrl:
                     'https://images.unsplash.com/photo-1596495578065-8c3d83df9de1?w=1200',
-                ctaLabel: 'Start Admission',
+                ctaLabel: l10n.startAdmission,
                 onCta: () => context.push('/admissions/new'),
               ),
+
+              // Admin overview: quick stats and shortcuts
+              if (_role == 'admin') ...[
+                const SizedBox(height: AppSpacing.v12),
+                const SectionHeader(label: 'Admin Overview'),
+                const SizedBox(height: AppSpacing.v8),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: LayoutBuilder(builder: (ctx, cons) {
+                      final narrow = cons.maxWidth < 380;
+                      if (narrow) {
+                        // Use a compact grid on narrow phones (e.g., Galaxy S9)
+                        return GridView(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            childAspectRatio: 2.8,
+                          ),
+                          children: [
+                            _AdminStatBox(
+                              label: 'Admissions',
+                              tooltip: 'Pending admissions to review',
+                              stream: FirebaseFirestore.instance
+                                  .collection('admission_submissions')
+                                  .where('status', isEqualTo: 'pending')
+                                  .snapshots()
+                                  .map((s) => s.size),
+                              onTap: () => context.pushNamed('adminAdmissions'),
+                            ),
+                            _AdminStatBox(
+                              label: 'Draft News',
+                              tooltip: 'Unpublished campus news',
+                              stream: FirebaseFirestore.instance
+                                  .collection('campus_news')
+                                  .where('published', isEqualTo: false)
+                                  .snapshots()
+                                  .map((s) => s.size),
+                              onTap: () => context.pushNamed('adminNews'),
+                            ),
+                            _AdminStatBox(
+                              label: 'Pending Appts',
+                              tooltip: 'Pending student appointments',
+                              stream: FirebaseFirestore.instance
+                                  .collection('appointmentID')
+                                  .where('status', isEqualTo: 'pending')
+                                  .snapshots()
+                                  .map((s) => s.size),
+                              onTap: () => context.pushNamed('appointments'),
+                            ),
+                          ],
+                        );
+                      }
+                      // Wide enough: keep the single row with equal spacing
+                      return Row(
+                        children: [
+                          _AdminStat(
+                            label: 'Admissions',
+                            tooltip: 'Pending admissions to review',
+                            stream: FirebaseFirestore.instance
+                                .collection('admission_submissions')
+                                .where('status', isEqualTo: 'pending')
+                                .snapshots()
+                                .map((s) => s.size),
+                            onTap: () => context.pushNamed('adminAdmissions'),
+                          ),
+                          const SizedBox(width: 12),
+                          _AdminStat(
+                            label: 'Draft News',
+                            tooltip: 'Unpublished campus news',
+                            stream: FirebaseFirestore.instance
+                                .collection('campus_news')
+                                .where('published', isEqualTo: false)
+                                .snapshots()
+                                .map((s) => s.size),
+                            onTap: () => context.pushNamed('adminNews'),
+                          ),
+                          const SizedBox(width: 12),
+                          _AdminStat(
+                            label: 'Pending Appts',
+                            tooltip: 'Pending student appointments',
+                            stream: FirebaseFirestore.instance
+                                .collection('appointmentID')
+                                .where('status', isEqualTo: 'pending')
+                                .snapshots()
+                                .map((s) => s.size),
+                            onTap: () => context.pushNamed('appointments'),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.v8),
+                GridView.count(
+                  crossAxisCount: 2,
+                  childAspectRatio: 2.2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    ElevatedActionCard(
+                      icon: Icons.dashboard_customize,
+                      title: 'Admin Dashboard',
+                      subtitle: 'Manage all admin tools',
+                      onTap: () => context.pushNamed('adminDashboard'),
+                    ),
+                    ElevatedActionCard(
+                      icon: Icons.article_outlined,
+                      title: 'Campus News',
+                      subtitle: 'Create and publish updates',
+                      onTap: () => context.pushNamed('adminNews'),
+                    ),
+                    ElevatedActionCard(
+                      icon: Icons.school_outlined,
+                      title: 'Admissions',
+                      subtitle: 'Review and update status',
+                      onTap: () => context.pushNamed('adminAdmissions'),
+                    ),
+                    ElevatedActionCard(
+                      icon: Icons.info_outline,
+                      title: 'Campus Info',
+                      subtitle: 'Edit campus pages',
+                      onTap: () => context.pushNamed('adminCampusInfo'),
+                    ),
+                  ],
+                ),
+              ],
+
+              // Professor overview: today + pending approvals
+              if (_role == 'professor') ...[
+                const SizedBox(height: AppSpacing.v12),
+                SectionHeader(label: l10n.professorOverview),
+                const SizedBox(height: AppSpacing.v8),
+                FutureBuilder<Map<String, dynamic>?>(
+                  future: () async {
+                    final uid = FirebaseAuth.instance.currentUser?.uid;
+                    if (uid == null) return null;
+                    return await FirestoreService.getProfessorByUserId(uid);
+                  }(),
+                  builder: (context, profSnap) {
+                    if (profSnap.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final prof = profSnap.data;
+                    if (prof == null) {
+                      return Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.person_outline),
+                          title: Text(l10n.manageAppointments),
+                          subtitle: const Text(
+                              'Link your profile to manage requests'),
+                          trailing:
+                              const Icon(Icons.arrow_forward_ios, size: 16),
+                          onTap: () =>
+                              context.pushNamed('professorAppointments'),
+                        ),
+                      );
+                    }
+                    final profId = prof['id'] as String;
+                    return Card(
+                      child: Column(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.inbox_outlined),
+                            title: Text(l10n.pendingApprovals),
+                            subtitle: const Text(
+                                'Approve or reject student requests'),
+                            trailing:
+                                const Icon(Icons.arrow_forward_ios, size: 16),
+                            onTap: () =>
+                                context.pushNamed('professorAppointments'),
+                          ),
+                          const Divider(height: 1),
+                          StreamBuilder<List<Map<String, dynamic>>>(
+                            stream:
+                                FirestoreService.streamProfessorAppointments(
+                                    profId),
+                            builder: (context, apptSnap) {
+                              if (!apptSnap.hasData) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              }
+                              final items = apptSnap.data!
+                                  .where((a) =>
+                                      (a['status'] ?? 'pending') == 'pending')
+                                  .take(3)
+                                  .toList();
+                              if (items.isEmpty) {
+                                return Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(l10n.noAppointments),
+                                  ),
+                                );
+                              }
+                              return Column(
+                                children: [
+                                  ...items.map((a) => ListTile(
+                                        leading:
+                                            const Icon(Icons.schedule_outlined),
+                                        title:
+                                            Text(a['studentID'] ?? 'Student'),
+                                        subtitle: Text(
+                                            'Slot: ${a['requestedSlot'] ?? '-'}'),
+                                        trailing:
+                                            const Icon(Icons.chevron_right),
+                                        onTap: () => context
+                                            .pushNamed('professorAppointments'),
+                                      )),
+                                  const Divider(height: 1),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton.icon(
+                                      onPressed: () => context
+                                          .pushNamed('professorAppointments'),
+                                      icon: const Icon(Icons.inbox),
+                                      label: Text(l10n.reviewNow),
+                                    ),
+                                  )
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
 
               const SizedBox(height: AppSpacing.v12),
               // Section: Campus News (published)
@@ -100,8 +339,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     return Card(
                       child: ListTile(
                         leading: const Icon(Icons.campaign_outlined),
-                        title: const Text('No published news yet'),
-                        subtitle: const Text('Check back soon'),
+                        title: Text(l10n.noPublishedNews),
+                        subtitle: Text(l10n.checkBackSoon),
                       ),
                     );
                   }
@@ -133,63 +372,200 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: AppSpacing.v12),
 
               // Quick actions grid
-              GridView.count(
-                crossAxisCount: 2,
-                childAspectRatio: 1.8,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  if (_role != 'professor')
-                    if (_role != 'professor')
+              LayoutBuilder(builder: (ctx, cons) {
+                final w = cons.maxWidth;
+                final count = w >= 720
+                    ? 4
+                    : w >= 520
+                        ? 3
+                        : 2;
+                // Tighter aspect ratio to avoid text clipping on compact phones
+                final ratio = w < 360 ? 1.35 : 1.5;
+                return GridView(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: count,
+                    childAspectRatio: ratio,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                  ),
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  children: [
+                    if (_role == 'professor')
+                      ElevatedActionCard(
+                        icon: Icons.assignment_outlined,
+                        title: l10n.manageAppointments,
+                        subtitle: l10n.reviewNow,
+                        onTap: () => context.pushNamed('professorAppointments'),
+                      ),
+                    if (_role == 'student')
                       ElevatedActionCard(
                         icon: Icons.edit,
-                        title: 'New Admission',
-                        subtitle: 'Start a new application',
+                        title: l10n.newAdmission,
+                        subtitle: l10n.startAdmission,
                         onTap: () => context.push('/admissions/new'),
                       ),
-                  if (_role != 'professor')
+                    if (_role == 'student')
+                      ElevatedActionCard(
+                        icon: Icons.folder,
+                        title: l10n.savedForms,
+                        subtitle: l10n.offlineDrafts,
+                        onTap: () => context.push('/admissions/saved'),
+                      ),
                     ElevatedActionCard(
-                      icon: Icons.folder,
-                      title: 'Saved Forms',
-                      subtitle: 'Offline admission drafts',
-                      onTap: () => context.push('/admissions/saved'),
+                      icon: Icons.map,
+                      title: l10n.campusInfo,
+                      subtitle: 'Campuses & facilities',
+                      onTap: () => context.pushNamed('campusInfo'),
                     ),
-                  ElevatedActionCard(
-                    icon: Icons.map,
-                    title: l10n.campusInfo,
-                    subtitle: 'Campuses & facilities',
-                    onTap: () => context.pushNamed('campusInfo'),
-                  ),
-                  if (_role != 'professor')
+                    if (_role == 'student')
+                      ElevatedActionCard(
+                        icon: Icons.calendar_today,
+                        title: l10n.appointments,
+                        subtitle: 'Book & manage meetings',
+                        onTap: () => context.pushNamed('appointments'),
+                      ),
+                    if (_role == 'student')
+                      ElevatedActionCard(
+                        icon: Icons.person_search,
+                        title: l10n.professors,
+                        subtitle: l10n.browseFaculty,
+                        onTap: () => context.pushNamed('professors'),
+                      ),
                     ElevatedActionCard(
-                      icon: Icons.calendar_today,
-                      title: l10n.appointments,
-                      subtitle: 'Book & manage meetings',
-                      onTap: () => context.pushNamed('appointments'),
+                      icon: Icons.smart_toy_outlined,
+                      title: l10n.aiChatbot,
+                      subtitle: 'Ask campus questions',
+                      onTap: () => context.pushNamed('chatbot'),
                     ),
-                  if (_role != 'professor')
-                    ElevatedActionCard(
-                      icon: Icons.person_search,
-                      title: 'Professors',
-                      subtitle: 'Browse faculty directory',
-                      onTap: () => context.pushNamed('professors'),
-                    ),
-                  ElevatedActionCard(
-                    icon: Icons.smart_toy_outlined,
-                    title: l10n.aiChatbot,
-                    subtitle: 'Ask campus questions',
-                    onTap: () => context.pushNamed('chatbot'),
-                  ),
-                ],
-              ),
+                  ],
+                );
+              }),
 
               const SizedBox(height: AppSpacing.v12),
 
+              // Student: Upcoming Appointments preview
+              if (_role == 'student') ...[
+                SectionHeader(label: l10n.upcomingAppointments),
+                const SizedBox(height: AppSpacing.v8),
+                Card(
+                  child: StreamBuilder<List<Map<String, dynamic>>>(
+                    stream: () {
+                      final uid = FirebaseAuth.instance.currentUser?.uid;
+                      if (uid == null) {
+                        return const Stream<List<Map<String, dynamic>>>.empty();
+                      }
+                      return FirestoreService.streamUserAppointments(uid);
+                    }(),
+                    builder: (context, snap) {
+                      if (!snap.hasData) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      final list = snap.data!;
+                      if (list.isEmpty) {
+                        return ListTile(
+                          leading: const Icon(Icons.event_busy),
+                          title: Text(l10n.noAppointments),
+                          subtitle: Text(l10n.startAdmission),
+                          trailing:
+                              const Icon(Icons.arrow_forward_ios, size: 16),
+                          onTap: () => context.pushNamed('appointments'),
+                        );
+                      }
+                      final preview = list.take(2).toList();
+                      return Column(
+                        children: [
+                          ...preview.map((a) => ListTile(
+                                leading: const Icon(Icons.event_available),
+                                title: _ProfessorNameInline(
+                                  professorId: a['ProffessorID'] ?? 'Professor',
+                                ),
+                                subtitle: Text(
+                                    'Slot: ${a['requestedSlot'] ?? '-'} • ${a['status'] ?? 'pending'}'),
+                              )),
+                          const Divider(height: 1),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () =>
+                                  context.pushNamed('appointments'),
+                              icon: const Icon(Icons.open_in_new),
+                              label: Text(l10n.viewAllAppointments),
+                            ),
+                          )
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: AppSpacing.v12),
+
+              // Student: Admission Status (latest)
+              if (_role == 'student') ...[
+                SectionHeader(label: l10n.admissionStatus),
+                const SizedBox(height: AppSpacing.v8),
+                Card(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: () {
+                      final uid = FirebaseAuth.instance.currentUser?.uid;
+                      if (uid == null) {
+                        return const Stream<QuerySnapshot>.empty();
+                      }
+                      return FirebaseFirestore.instance
+                          .collection('admission_submissions')
+                          .where('studentID', isEqualTo: uid)
+                          .orderBy('createdAt', descending: true)
+                          .limit(1)
+                          .snapshots();
+                    }(),
+                    builder: (context, snap) {
+                      if (!snap.hasData) {
+                        return const Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+                      final docs = snap.data!.docs;
+                      if (docs.isEmpty) {
+                        return ListTile(
+                          leading: const Icon(Icons.pending_actions_outlined),
+                          title: Text(l10n.noAdmissionsYet),
+                          subtitle: Text(l10n.startNewAdmission),
+                          onTap: () => context.push('/admissions/new'),
+                          trailing:
+                              const Icon(Icons.arrow_forward_ios, size: 16),
+                        );
+                      }
+                      final data = docs.first.data() as Map<String, dynamic>;
+                      final status = data['status'] ?? 'submitted';
+                      final campus = data['campus'] ?? '—';
+                      return ListTile(
+                        leading: const Icon(Icons.fact_check_outlined),
+                        title: Text('Status: $status'),
+                        subtitle: Text('Campus: $campus'),
+                        // For student role, avoid navigating to admin screens.
+                        // Show status only.
+                      );
+                    },
+                  ),
+                ),
+              ],
+
               // Section: Your Admissions (preview) — hidden for professors
-              if (_role != 'professor') ...[
-                const SectionHeader(label: 'Your Admissions'),
+              if (_role == 'student') ...[
+                SectionHeader(label: l10n.yourAdmissions),
                 const SizedBox(height: AppSpacing.v8),
                 FutureBuilder<List<AdmissionForm>>(
                   future: AdmissionFormDb.instance.all(),
@@ -201,8 +577,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (items.isEmpty) {
                       return Card(
                         child: ListTile(
-                          title: const Text('No saved forms yet'),
-                          subtitle: const Text('Start a new admission form'),
+                          title: Text(l10n.noSavedForms),
+                          subtitle: Text(l10n.startNewAdmission),
                           trailing:
                               const Icon(Icons.arrow_forward_ios, size: 16),
                           onTap: () => context.push('/admissions/new'),
@@ -227,7 +603,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               onPressed: () =>
                                   context.push('/admissions/saved'),
                               icon: const Icon(Icons.folder_open),
-                              label: const Text('View all saved forms'),
+                              label: Text(l10n.viewAllSavedForms),
                             ),
                           )
                         ],
@@ -245,10 +621,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     .onSurface
                     .withValues(alpha: 0.06),
               ),
-              const SectionHeader(label: 'Explore Campuses'),
+              SectionHeader(label: l10n.exploreCampuses),
               const SizedBox(height: AppSpacing.v8),
               SizedBox(
-                height: 160,
+                height: 150,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: campuses.length,
@@ -314,37 +690,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
-              const SizedBox(height: AppSpacing.v12),
-              // Integrated next appointment into button label
-              FutureBuilder<String?>(
-                future: _loadNextAppointment(),
-                builder: (context, snap) {
-                  final nextLabel = snap.data;
-                  final base = l10n.myAppointments;
-                  final label = nextLabel != null
-                      ? '$base • $nextLabel'
-                      : '$base • Manage';
-                  return Semantics(
-                    button: true,
-                    label: 'Open your booked appointments list',
-                    hint: 'View, manage or cancel professor bookings',
-                    child: Tooltip(
-                      message: 'Manage your scheduled bookings',
-                      child: ElevatedButton.icon(
-                        onPressed: () => context.pushNamed('appointments'),
-                        icon: const Icon(Icons.calendar_today),
-                        label: Text(label),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+              // Removed standalone My Appointments button per request
               const SizedBox(height: 100),
             ],
           ),
@@ -356,18 +702,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // Placeholder data loaders; replace with Firestore or local bookings
-  Future<String?> _loadNextAppointment() async {
-    // Demo: next appointment for current user from sampleAppointments
-    final next = sampleAppointments
-        .where((a) => a.userId == currentUser.id)
-        .toList()
-      ..sort((a, b) => a.start.compareTo(b.start));
-    if (next.isEmpty) return null;
-    final a = next.first;
-    final when =
-        '${a.start.month}/${a.start.day} ${a.start.hour.toString().padLeft(2, '0')}:${a.start.minute.toString().padLeft(2, '0')}';
-    return 'With ${a.professorId.toUpperCase()} • $when';
-  }
+  // _loadNextAppointment removed with the My Appointments button
 
   // _loadUpcomingEvent removed (unused after UI simplification)
 
@@ -498,6 +833,24 @@ class _InfoCard extends StatelessWidget {
   }
 }
 
+class _ProfessorNameInline extends StatelessWidget {
+  final String professorId;
+  const _ProfessorNameInline({required this.professorId});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: FirestoreService.getProfessorById(professorId),
+      builder: (context, snap) {
+        final name = snap.data?['name'] as String?;
+        final displayName = name ??
+            (professorId == 'demo_professor' ? 'Dr Ayesha Khan' : professorId);
+        return Text(displayName);
+      },
+    );
+  }
+}
+
 // Reusable section header for consistent style
 // _SectionHeader removed; using shared SectionHeader widget
 
@@ -559,6 +912,122 @@ class _CampusShortcutCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminStat extends StatelessWidget {
+  final String label;
+  final String tooltip;
+  final Stream<int> stream;
+  final VoidCallback onTap;
+  const _AdminStat({
+    required this.label,
+    required this.tooltip,
+    required this.stream,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final border =
+        Theme.of(context).colorScheme.primary.withValues(alpha: 0.15);
+    return Expanded(
+      child: Semantics(
+        button: true,
+        label: '$label count',
+        child: Tooltip(
+          message: tooltip,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: border),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  StreamBuilder<int>(
+                    stream: stream,
+                    builder: (context, snap) {
+                      final v = snap.data;
+                      return Text(
+                        v == null ? '—' : v.toString(),
+                        style: const TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminStatBox extends StatelessWidget {
+  final String label;
+  final String tooltip;
+  final Stream<int> stream;
+  final VoidCallback onTap;
+  const _AdminStatBox({
+    required this.label,
+    required this.tooltip,
+    required this.stream,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final border =
+        Theme.of(context).colorScheme.primary.withValues(alpha: 0.15);
+    return Semantics(
+      button: true,
+      label: '$label count',
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: border),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 6),
+                StreamBuilder<int>(
+                  stream: stream,
+                  builder: (context, snap) {
+                    final v = snap.data;
+                    return Text(
+                      v == null ? '—' : v.toString(),
+                      style: const TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.bold),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),

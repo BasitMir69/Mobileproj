@@ -71,6 +71,30 @@ class AppLocalizations {
       'professorsAppointments': 'Professors & Appointments',
       'viewGallery': 'View More Photos • Gallery',
       'openGalleryPlaceholder': 'Open gallery - replace with real photos',
+      'findRightSchool': 'Find the right school',
+      'browseCompareApply': 'Browse campuses, compare, and apply from anywhere',
+      'startAdmission': 'Start Admission',
+      'newAdmission': 'New Admission',
+      'savedForms': 'Saved Forms',
+      'offlineDrafts': 'Offline admission drafts',
+      'noPublishedNews': 'No published news yet',
+      'checkBackSoon': 'Check back soon',
+      'yourAdmissions': 'Your Admissions',
+      'noSavedForms': 'No saved forms yet',
+      'startNewAdmission': 'Start a new admission form',
+      'viewAllSavedForms': 'View all saved forms',
+      'professors': 'Professors',
+      'browseFaculty': 'Browse faculty directory',
+      'exploreCampuses': 'Explore Campuses',
+      'professorOverview': 'Professor Overview',
+      'pendingApprovals': 'Pending Approvals',
+      'manageAppointments': 'Manage Appointments',
+      'reviewNow': 'Review now',
+      'noAppointments': 'No appointments yet',
+      'upcomingAppointments': 'Upcoming Appointments',
+      'viewAllAppointments': 'View all appointments',
+      'admissionStatus': 'Admission Status',
+      'noAdmissionsYet': 'No admissions yet',
     },
     'ur': {
       'title': 'کیمپس ویو',
@@ -129,6 +153,31 @@ class AppLocalizations {
       'professorsAppointments': 'پروفیسرز اور ملاقاتیں',
       'viewGallery': 'مزید تصاویر دیکھیں • گیلری',
       'openGalleryPlaceholder': 'گیلری کھولیں - اصلی تصاویر کے ساتھ تبدیل کریں',
+      'findRightSchool': 'صحیح اسکول تلاش کریں',
+      'browseCompareApply':
+          'کیمپس دیکھیں، موازنہ کریں اور کہیں سے بھی درخواست دیں',
+      'startAdmission': 'داخلہ شروع کریں',
+      'newAdmission': 'نیا داخلہ',
+      'savedForms': 'محفوظ شدہ فارم',
+      'offlineDrafts': 'آف لائن داخلہ مسودے',
+      'noPublishedNews': 'ابھی کوئی شائع شدہ خبر نہیں',
+      'checkBackSoon': 'جلد دوبارہ چیک کریں',
+      'yourAdmissions': 'آپ کے داخلے',
+      'noSavedForms': 'ابھی کوئی محفوظ فارم نہیں',
+      'startNewAdmission': 'نیا داخلہ فارم شروع کریں',
+      'viewAllSavedForms': 'تمام محفوظ فارم دیکھیں',
+      'professors': 'اساتذہ',
+      'browseFaculty': 'فیکلٹی ڈائریکٹری دیکھیں',
+      'exploreCampuses': 'کیمپس دریافت کریں',
+      'professorOverview': 'پروفیسر کا جائزہ',
+      'pendingApprovals': 'زیر التواء منظوری',
+      'manageAppointments': 'ملاقاتیں منظم کریں',
+      'reviewNow': 'ابھی جائزہ لیں',
+      'noAppointments': 'ابھی کوئی ملاقات نہیں',
+      'upcomingAppointments': 'آئندہ ملاقاتیں',
+      'viewAllAppointments': 'تمام ملاقاتیں دیکھیں',
+      'admissionStatus': 'داخلہ کی حالت',
+      'noAdmissionsYet': 'ابھی کوئی داخلہ نہیں',
     },
   };
 
@@ -218,6 +267,53 @@ class AppLocalizations {
       _localizedValues[locale.languageCode]!['viewGallery']!;
   String get openGalleryPlaceholder =>
       _localizedValues[locale.languageCode]!['openGalleryPlaceholder']!;
+  String get findRightSchool =>
+      _localizedValues[locale.languageCode]!['findRightSchool']!;
+  String get browseCompareApply =>
+      _localizedValues[locale.languageCode]!['browseCompareApply']!;
+  String get startAdmission =>
+      _localizedValues[locale.languageCode]!['startAdmission']!;
+  String get newAdmission =>
+      _localizedValues[locale.languageCode]!['newAdmission']!;
+  String get savedForms =>
+      _localizedValues[locale.languageCode]!['savedForms']!;
+  String get offlineDrafts =>
+      _localizedValues[locale.languageCode]!['offlineDrafts']!;
+  String get noPublishedNews =>
+      _localizedValues[locale.languageCode]!['noPublishedNews']!;
+  String get checkBackSoon =>
+      _localizedValues[locale.languageCode]!['checkBackSoon']!;
+  String get yourAdmissions =>
+      _localizedValues[locale.languageCode]!['yourAdmissions']!;
+  String get noSavedForms =>
+      _localizedValues[locale.languageCode]!['noSavedForms']!;
+  String get startNewAdmission =>
+      _localizedValues[locale.languageCode]!['startNewAdmission']!;
+  String get viewAllSavedForms =>
+      _localizedValues[locale.languageCode]!['viewAllSavedForms']!;
+  String get professors =>
+      _localizedValues[locale.languageCode]!['professors']!;
+  String get browseFaculty =>
+      _localizedValues[locale.languageCode]!['browseFaculty']!;
+  String get exploreCampuses =>
+      _localizedValues[locale.languageCode]!['exploreCampuses']!;
+  String get professorOverview =>
+      _localizedValues[locale.languageCode]!['professorOverview']!;
+  String get pendingApprovals =>
+      _localizedValues[locale.languageCode]!['pendingApprovals']!;
+  String get manageAppointments =>
+      _localizedValues[locale.languageCode]!['manageAppointments']!;
+  String get reviewNow => _localizedValues[locale.languageCode]!['reviewNow']!;
+  String get noAppointments =>
+      _localizedValues[locale.languageCode]!['noAppointments']!;
+  String get upcomingAppointments =>
+      _localizedValues[locale.languageCode]!['upcomingAppointments']!;
+  String get viewAllAppointments =>
+      _localizedValues[locale.languageCode]!['viewAllAppointments']!;
+  String get admissionStatus =>
+      _localizedValues[locale.languageCode]!['admissionStatus']!;
+  String get noAdmissionsYet =>
+      _localizedValues[locale.languageCode]!['noAdmissionsYet']!;
 }
 
 class _AppLocalizationsDelegate

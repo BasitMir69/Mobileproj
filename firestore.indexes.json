@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "campus_news",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admission_submissions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentID", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

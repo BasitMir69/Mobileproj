@@ -1,43 +1,21 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:campus_wave/services/firestore_service.dart';
 
-class MyAppointmentsScreen extends StatefulWidget {
+class MyAppointmentsScreen extends StatelessWidget {
   const MyAppointmentsScreen({super.key});
 
   @override
-  State<MyAppointmentsScreen> createState() => _MyAppointmentsScreenState();
-}
-
-class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
-  List<Map<String, dynamic>> _bookings = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('bookings') ?? '[]';
-    final List list = json.decode(raw) as List;
-    setState(() {
-      _bookings = List<Map<String, dynamic>>.from(
-          list.map((e) => Map<String, dynamic>.from(e)));
-    });
-  }
-
-  Future<void> _cancel(int index) async {
-    final prefs = await SharedPreferences.getInstance();
-    _bookings.removeAt(index);
-    await prefs.setString('bookings', json.encode(_bookings));
-    setState(() {});
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
+    if (uid == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('My Appointments')),
+        body: const Center(child: Text('Please sign in to view appointments')),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Appointments'),
@@ -49,34 +27,147 @@ class _MyAppointmentsScreenState extends State<MyAppointmentsScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: _bookings.isEmpty
-            ? const Center(child: Text('No appointments booked yet'))
-            : ListView.separated(
-                itemCount: _bookings.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, i) {
-                  final b = _bookings[i];
-                  return Card(
-                    color: const Color(0xFF1E1E1E),
-                    child: ListTile(
-                      title: Text(b['professorName'] ?? '',
-                          style: const TextStyle(color: Colors.white)),
-                      subtitle: Text(
-                          '${b['slot'] ?? ''}\n${b['userName'] ?? ''} • ${b['userEmail'] ?? ''}',
-                          style: TextStyle(color: Colors.grey[400])),
-                      isThreeLine: true,
-                      trailing: TextButton(
-                        onPressed: () => _cancel(i),
-                        child: const Text('Cancel',
-                            style: TextStyle(color: Colors.redAccent)),
-                      ),
-                    ),
-                  );
-                },
-              ),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: FirestoreService.streamUserAppointments(uid),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+
+          final appointments = snapshot.data ?? [];
+
+          if (appointments.isEmpty) {
+            return const Center(child: Text('No appointments booked yet'));
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.all(12),
+            itemCount: appointments.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, i) {
+              final appt = appointments[i];
+              final status = appt['status'] ?? 'pending';
+              final professorId = appt['ProffessorID'] ?? 'Unknown';
+              final slot = appt['requestedSlot'] ?? '-';
+              final location = appt['location'] ?? '-';
+
+              Color statusColor;
+              switch (status) {
+                case 'approved':
+                  statusColor = Colors.green;
+                  break;
+                case 'rejected':
+                  statusColor = Colors.red;
+                  break;
+                default:
+                  statusColor = Colors.orange;
+              }
+
+              return Card(
+                child: ListTile(
+                  leading: Icon(
+                    status == 'approved'
+                        ? Icons.check_circle
+                        : status == 'rejected'
+                            ? Icons.cancel
+                            : Icons.schedule,
+                    color: statusColor,
+                  ),
+                  title: _ProfessorName(professorId: professorId),
+                  subtitle: Text(
+                    'Time: $slot\nLocation: $location\nStatus: ${status.toUpperCase()}',
+                  ),
+                  isThreeLine: true,
+                  trailing: status == 'pending'
+                      ? TextButton(
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Cancel Appointment'),
+                                content: const Text(
+                                    'Are you sure you want to cancel this appointment?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('No'),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                    ),
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('Yes, Cancel'),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (confirm == true) {
+                              try {
+                                await FirestoreService.deleteAppointment(
+                                    appt['id'] as String);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Appointment cancelled')),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Error: $e')),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                          child: const Text('Cancel',
+                              style: TextStyle(color: Colors.redAccent)),
+                        )
+                      : Chip(
+                          label: Text(status.toUpperCase()),
+                          backgroundColor: statusColor.withOpacity(0.2),
+                          labelStyle: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              );
+            },
+          );
+        },
       ),
+    );
+  }
+}
+
+class _ProfessorName extends StatelessWidget {
+  final String professorId;
+  const _ProfessorName({required this.professorId});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: FirestoreService.getProfessorById(professorId),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Text('Professor: …');
+        }
+        final data = snap.data;
+        final name = data?['name'] as String?;
+
+        // Fallback: known demo id mapping
+        final displayName = name ??
+            (professorId == 'demo_professor' ? 'Dr Ayesha Khan' : professorId);
+
+        return Text('Professor: $displayName');
+      },
     );
   }
 }

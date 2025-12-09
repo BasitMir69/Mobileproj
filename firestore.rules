@@ -36,27 +36,37 @@ service cloud.firestore {
       allow delete: if false;
     }
     
-    // Appointments collection
+    // Helper to check if user is the professor for this appointment
+    function isProfessorForAppointment(profId) {
+      return exists(/databases/$(database)/documents/professors/$(profId)) &&
+             get(/databases/$(database)/documents/professors/$(profId)).data.userID == request.auth.uid;
+    }
+
+    // Appointments collection (block admin writes)
     match /appointmentID/{appointmentId} {
       // Read allowed to signed-in; UI filters by ownership/target
       allow read: if isSignedIn();
 
-      // Create: only students can create their own pending appointment
+      // Create: only students can create their own pending appointment (admin blocked by role)
       allow create: if isStudent() &&
                     request.resource.data.studentID == request.auth.uid &&
                     request.resource.data.keys().hasAll(['studentID','ProffessorID','campus','location','requestedSlot','status']) &&
                     request.resource.data.status == 'pending';
 
       // Update:
-      // - Professor approves/rejects only appointments targeted to them
+      // - Professor approves/rejects only appointments targeted to them (check via professor doc userID)
       // - Student updates only their own appointment (e.g., cancel)
+      // - Admin cannot update
       allow update: if isSignedIn() && (
-        (isProfessor() && resource.data.ProffessorID == request.auth.uid && request.resource.data.keys().hasAny(['status'])) ||
+        (isProfessor() && isProfessorForAppointment(resource.data.ProffessorID) && request.resource.data.keys().hasAny(['status','professorNotes','updatedAt'])) ||
         (isStudent() && resource.data.studentID == request.auth.uid)
       );
 
-      // Delete: only owning student
-      allow delete: if isStudent() && resource.data.studentID == request.auth.uid;
+      // Delete: owning student or professor for cleanup
+      allow delete: if isSignedIn() && (
+        (isStudent() && resource.data.studentID == request.auth.uid) ||
+        (isProfessor() && isProfessorForAppointment(resource.data.ProffessorID))
+      );
     }
 
     // Teacher appointment management collection (if used)
@@ -75,17 +85,22 @@ service cloud.firestore {
       allow delete: if isStudent() && resource.data.studentID == request.auth.uid;
     }
     
-    // Admission submissions collection
+    // Admission submissions collection (student submits, admin approves/rejects)
     match /admission_submissions/{submissionId} {
-      // Only students can create submissions
-      allow create: if isStudent();
-      
+      // Students create their own submissions
+      allow create: if isStudent() && request.resource.data.studentID == request.auth.uid;
+
       // Read: admin all; student only own
-      allow read: if isSignedIn() && (isAdmin() || (isStudent() && resource.data.userId == request.auth.uid));
-      
-      // Update status (approve/reject): admin only
-      allow update: if isAdmin();
-      
+      allow read: if isSignedIn() && (isAdmin() || resource.data.studentID == request.auth.uid);
+
+      // Update:
+      // - Admin can update status/testDate/updatedAt
+      // - Student can update their own submission (e.g., drafts/edits)
+      allow update: if isSignedIn() && (
+        (isAdmin() && request.resource.data.keys().hasAny(['status','updatedAt','testDate'])) ||
+        (resource.data.studentID == request.auth.uid)
+      );
+
       // No deletes from clients
       allow delete: if false;
     }
@@ -105,6 +120,19 @@ service cloud.firestore {
     match /campus_info/{slug} {
       allow read: if isSignedIn();
       allow create, update, delete: if isAdmin();
+    }
+
+    // Feedback collection: users can submit; admin can read all
+    match /feedback/{feedbackId} {
+      // Create: any signed-in user can submit feedback with optional rating
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasAny(['message','rating','userId','createdAt']);
+
+      // Read: admin can read all; users can read their own feedback documents
+      allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
+
+      // Updates/deletes via client are not allowed
+      allow update, delete: if false;
     }
     
     // Deny all other access by default

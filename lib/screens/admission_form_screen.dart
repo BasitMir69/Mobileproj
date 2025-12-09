@@ -1,11 +1,13 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:campus_wave/data/campuses.dart';
 import 'package:campus_wave/data/admission_form.dart';
 import 'package:campus_wave/data/admission_form_db.dart';
-import 'package:campus_wave/services/email_submission_service.dart';
+import 'package:campus_wave/services/firestore_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AdmissionFormScreen extends StatefulWidget {
   const AdmissionFormScreen({super.key});
@@ -45,6 +47,103 @@ class _AdmissionFormScreenState extends State<AdmissionFormScreen> {
     'A Levels',
   ];
 
+  List<String> _gradesForCampus(String? campusName) {
+    final c = (campusName ?? _campus ?? '').trim();
+    switch (c) {
+      case 'LGS 1A1':
+        return const ['O Levels', 'A Levels'];
+      case 'LGS 42 B-III Gulberg':
+      case 'LGS 42B Gulberg III':
+      case 'LGS Gulberg Campus 2':
+        return const [
+          'Grade 5',
+          'Grade 6',
+          'Grade 7',
+          'Grade 8',
+          'O Levels',
+          'A Levels'
+        ];
+      case 'LGS JT':
+      case 'LGS Johar Town':
+        return const [
+          'Nursery',
+          'Prep',
+          'Grade 1',
+          'Grade 2',
+          'Grade 3',
+          'Grade 4',
+          'Grade 5',
+          'Grade 6',
+          'Grade 7',
+          'Grade 8',
+          'O Levels',
+          'A Levels'
+        ];
+      case 'LGS IB PHASE':
+      case 'LGS IB Phase':
+        return const [
+          'Playgroup',
+          'Nursery',
+          'Prep',
+          'Grade 1',
+          'Grade 2',
+          'Grade 3',
+          'Grade 4',
+          'Grade 5',
+          'Grade 6',
+          'Grade 7',
+          'Grade 8'
+        ];
+      case 'LGS PARAGON':
+      case 'LGS Paragon':
+        return const [
+          'Grade 1',
+          'Grade 2',
+          'Grade 3',
+          'Grade 4',
+          'Grade 5',
+          'Grade 6',
+          'Grade 7',
+          'Grade 8',
+          'O Levels',
+          'A Levels'
+        ];
+      default:
+        return _grades;
+    }
+  }
+
+  String? _validateAgeForGrade(DateTime? dob, String? grade) {
+    if (dob == null || grade == null) return 'DOB and grade required';
+    final today = DateTime.now();
+    int age = today.year - dob.year;
+    final hadBirthdayThisYear = (today.month > dob.month) ||
+        (today.month == dob.month && today.day >= dob.day);
+    if (!hadBirthdayThisYear) age -= 1;
+
+    Map<String, List<int>> ageRanges = {
+      'Playgroup': [3, 4],
+      'Nursery': [4, 5],
+      'Prep': [5, 6],
+      'Grade 1': [6, 7],
+      'Grade 2': [7, 8],
+      'Grade 3': [8, 9],
+      'Grade 4': [9, 10],
+      'Grade 5': [10, 11],
+      'Grade 6': [11, 12],
+      'Grade 7': [12, 13],
+      'Grade 8': [13, 14],
+      'O Levels': [14, 17],
+      'A Levels': [16, 19],
+    };
+    final range = ageRanges[grade];
+    if (range == null) return null;
+    if (age < range[0] || age > range[1]) {
+      return 'Typical age for $grade is ${range[0]}–${range[1]} years';
+    }
+    return null;
+  }
+
   @override
   void dispose() {
     _parentName.dispose();
@@ -75,9 +174,46 @@ class _AdmissionFormScreenState extends State<AdmissionFormScreen> {
       );
       return;
     }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please sign in to submit admission.')),
+      );
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       final sampleTestDate = DateTime.now().add(const Duration(days: 7));
+
+      // Convert image to base64 if exists
+      String? imageBase64;
+      if (_documentPath != null) {
+        try {
+          final bytes = await File(_documentPath!).readAsBytes();
+          imageBase64 = base64Encode(bytes);
+        } catch (e) {
+          debugPrint('Error encoding image: $e');
+        }
+      }
+
+      // Submit to Firestore first
+      await FirestoreService.submitAdmission(
+        childName: _childName.text.trim(),
+        parentName: _parentName.text.trim(),
+        parentEmail: _parentEmail.text.trim(),
+        phone: _phone.text.trim(),
+        campus: _campus ?? campuses.first.name,
+        gradeApplying: _grade ?? 'Grade 1',
+        childDob: (_childDob ?? DateTime(2018, 1, 1)).toIso8601String(),
+        gender: _gender!,
+        notes: _notes.text.trim(),
+        imageBase64: imageBase64,
+      );
+
+      // Also save locally as backup
       final form = AdmissionForm(
         parentName: _parentName.text.trim(),
         parentEmail: _parentEmail.text.trim(),
@@ -93,27 +229,24 @@ class _AdmissionFormScreenState extends State<AdmissionFormScreen> {
         testDate: sampleTestDate.toIso8601String(),
       );
       await AdmissionFormDb.instance.insert(form);
-      await _sendEmail(form);
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved offline. View in Saved Forms.')),
+        const SnackBar(
+            content: Text('Admission submitted! Admin will review it.')),
       );
-      context.go('/admissions/saved');
+      context.go('/home');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Submission failed: $e')),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  Future<void> _sendEmail(AdmissionForm form) async {
-    try {
-      await EmailSubmissionService.send(form);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Email send failed: $e')),
-      );
-    }
-  }
+  // Email sending removed per request
 
   @override
   Widget build(BuildContext context) {
@@ -122,16 +255,9 @@ class _AdmissionFormScreenState extends State<AdmissionFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admission Form'),
-        actions: [
-          IconButton(
-            tooltip: 'Saved Forms',
-            icon: const Icon(Icons.folder_open),
-            onPressed: () => context.push('/admissions/saved'),
-          )
-        ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Form(
           key: _formKey,
           child: Column(
@@ -152,26 +278,41 @@ class _AdmissionFormScreenState extends State<AdmissionFormScreen> {
                         controller: _parentName,
                         decoration:
                             const InputDecoration(labelText: 'Full Name*'),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Required';
+                          if (RegExp(r"[0-9]").hasMatch(v)) {
+                            return 'Name must not include numbers';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _parentEmail,
                         decoration: const InputDecoration(labelText: 'Email*'),
                         keyboardType: TextInputType.emailAddress,
-                        validator: (v) => (v == null || !v.contains('@'))
-                            ? 'Valid email required'
-                            : null,
+                        validator: (v) {
+                          final email = v?.trim() ?? '';
+                          final re = RegExp(
+                              r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}");
+                          if (!re.hasMatch(email))
+                            return 'Valid email required';
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _phone,
                         decoration: const InputDecoration(labelText: 'Phone*'),
                         keyboardType: TextInputType.phone,
-                        validator: (v) => (v == null || v.trim().length < 7)
-                            ? 'Valid phone required'
-                            : null,
+                        validator: (v) {
+                          final digitsOnly =
+                              (v ?? '').replaceAll(RegExp(r"[^0-9]"), '');
+                          if (digitsOnly.length != 11) {
+                            return 'Phone must be 11 digits';
+                          }
+                          return null;
+                        },
                       ),
                     ],
                   ),
@@ -239,14 +380,25 @@ class _AdmissionFormScreenState extends State<AdmissionFormScreen> {
                               value: _grade,
                               decoration: const InputDecoration(
                                   labelText: 'Grade Applying*'),
-                              items: _grades
+                              items: _gradesForCampus(_campus)
                                   .map((g) => DropdownMenuItem(
                                         value: g,
                                         child: Text(g),
                                       ))
                                   .toList(),
                               onChanged: (v) => setState(() => _grade = v),
-                              validator: (v) => v == null ? 'Required' : null,
+                              validator: (v) {
+                                if (v == null) return 'Required';
+                                // Also ensure grade is permitted for selected campus
+                                if (!_gradesForCampus(_campus).contains(v)) {
+                                  return 'Grade not offered at selected campus';
+                                }
+                                // Validate age vs grade
+                                final ageErr =
+                                    _validateAgeForGrade(_childDob, v);
+                                if (ageErr != null) return ageErr;
+                                return null;
+                              },
                             ),
                           ),
                         ],
@@ -260,7 +412,14 @@ class _AdmissionFormScreenState extends State<AdmissionFormScreen> {
                             .map((c) =>
                                 DropdownMenuItem(value: c, child: Text(c)))
                             .toList(),
-                        onChanged: (v) => setState(() => _campus = v),
+                        onChanged: (v) => setState(() {
+                          _campus = v;
+                          // reset grade if not allowed under new campus
+                          if (_grade != null &&
+                              !_gradesForCampus(v).contains(_grade)) {
+                            _grade = null;
+                          }
+                        }),
                         validator: (v) => v == null ? 'Required' : null,
                       ),
                       const SizedBox(height: 12),
@@ -281,8 +440,9 @@ class _AdmissionFormScreenState extends State<AdmissionFormScreen> {
                         controller: _notes,
                         maxLines: 3,
                         decoration: const InputDecoration(
-                            labelText: 'Notes (optional)',
-                            hintText: 'Allergies, schedule preferences, etc.'),
+                            labelText: 'Notes (Health Issues)',
+                            hintText:
+                                'Allergies, conditions, accommodations, etc.'),
                       ),
                     ],
                   ),
@@ -292,34 +452,23 @@ class _AdmissionFormScreenState extends State<AdmissionFormScreen> {
               Card(
                 elevation: 1,
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const Text('Submit',
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'We will email your admission request (with CNIC/B-Form image) to the admissions office. You will see status updates in Saved Forms.',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       SizedBox(
                         height: 48,
                         child: ElevatedButton.icon(
                           onPressed: _saving ? null : _save,
                           icon: const Icon(Icons.send_rounded),
-                          label:
-                              Text(_saving ? 'Submitting…' : 'Submit & Email'),
+                          label: Text(_saving ? 'Submitting…' : 'Submit'),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () => context.push('/admissions/saved'),
-                        icon: const Icon(Icons.folder),
-                        label: const Text('View Saved Forms'),
-                      )
                     ],
                   ),
                 ),

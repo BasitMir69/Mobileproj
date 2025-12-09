@@ -28,7 +28,6 @@ import 'package:campus_wave/screens/teacher_appointment_management_screen.dart';
 import 'package:campus_wave/screens/browse_teacher_appointments_screen.dart';
 import 'package:campus_wave/screens/professor_migration_screen.dart';
 import 'package:campus_wave/screens/search_screen.dart';
-import 'package:campus_wave/screens/cafeteria_screen.dart';
 import 'package:campus_wave/screens/library_screen.dart';
 import 'package:campus_wave/screens/chatbot_screen.dart';
 import 'package:campus_wave/screens/event_detail_screen.dart';
@@ -209,14 +208,7 @@ GoRouter createRouter() {
               child: const SearchScreen(),
             ),
           ),
-          GoRoute(
-            path: '/cafeteria',
-            name: 'cafeteria',
-            pageBuilder: (ctx, state) => NoTransitionPage(
-              key: state.pageKey,
-              child: const CafeteriaScreen(),
-            ),
-          ),
+          // Cafeteria route removed
           GoRoute(
             path: '/library',
             name: 'library',
@@ -424,16 +416,37 @@ GoRouter createRouter() {
         }
       }
 
-      // Guard professor-only routes for non-professors
-      if (loggedIn && state.matchedLocation.startsWith('/professor')) {
+      // Guard professor MANAGEMENT routes for non-professors (allow viewing profiles)
+      if (loggedIn) {
+        final loc = state.matchedLocation;
+        final professorRestricted = loc.startsWith('/professorAppointments') ||
+            loc.startsWith('/professorApprovals') ||
+            loc.startsWith('/teacherAppointmentManagement');
+        if (professorRestricted) {
+          try {
+            final snap = await db.collection('users').doc(user.uid).get();
+            final role = (snap.data()?['role'] ?? 'student') as String;
+            if (role != 'professor') {
+              return '/home';
+            }
+          } catch (_) {
+            return '/home';
+          }
+        }
+      }
+
+      // Restrict admin from appointments and admissions submission routes
+      if (loggedIn &&
+          (state.matchedLocation.startsWith('/appointments') ||
+              state.matchedLocation.startsWith('/admissions'))) {
         try {
           final snap = await db.collection('users').doc(user.uid).get();
           final role = (snap.data()?['role'] ?? 'student') as String;
-          if (role != 'professor') {
-            return '/home';
+          if (role == 'admin') {
+            return '/admin';
           }
         } catch (_) {
-          return '/home';
+          // if in doubt, allow non-admin
         }
       }
 

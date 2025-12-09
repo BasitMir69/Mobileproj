@@ -260,21 +260,29 @@ class _OverviewTab extends StatelessWidget {
     } else if (campus.name.trim().toLowerCase() == 'lgs jt' ||
         campus.name.trim().toLowerCase() == 'lgs johar town') {
       website = 'https://lgsjt.edu.pk';
-      mapUrl = 'https://share.google/MFA6ZEqudGRu5N3p9';
+      mapUrl = 'https://www.google.com/maps/search/?api=1&query=' +
+          Uri.encodeComponent('LGS Johar Town, Lahore');
     } else if (campus.name.trim().toLowerCase() == 'lgs paragon') {
       website = 'https://lgsgulberg.edu.pk';
-      mapUrl = 'https://share.google/DI74Pjx5yykQjO8eL';
+      mapUrl = 'https://www.google.com/maps/search/?api=1&query=' +
+          Uri.encodeComponent('LGS Paragon, Lahore');
     } else if (campus.name.trim().toLowerCase() == 'lgs gulberg campus 2') {
       website = 'https://lgsgulberg.edu.pk';
-      mapUrl = 'https://share.google/NaGPW8XlikuhO35ym';
+      mapUrl = 'https://www.google.com/maps/search/?api=1&query=' +
+          Uri.encodeComponent('LGS Gulberg Campus 2, Lahore');
     } else if (campus.name.trim().toLowerCase() == 'lgs ib phase' ||
         campus.name.trim().toLowerCase() == 'lgs ib phase (lahore)') {
       mapUrl = 'https://maps.app.goo.gl/MWG5Y8A28aTbuv5K7';
     } else if (campus.name.trim().toLowerCase() == 'lgs 42 b-iii gulberg' ||
         campus.name.trim().toLowerCase() == 'lgs 42b gulberg iii') {
       website = 'https://lgsgulberg.edu.pk';
-      mapUrl = 'https://share.google/zGpSjWlu3b1En7vCE';
+      mapUrl = 'https://www.google.com/maps/search/?api=1&query=' +
+          Uri.encodeComponent('LGS 42 B-III Gulberg, Lahore');
     }
+
+    // Fallback: build a generic Google Maps search URL if none set
+    mapUrl ??= 'https://www.google.com/maps/search/?api=1&query=' +
+        Uri.encodeComponent('${campus.name}, Lahore');
 
     return CustomScrollView(
       slivers: [
@@ -305,7 +313,7 @@ class _OverviewTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(campus.location, style: theme.textTheme.bodySmall),
-                if (website != null || mapUrl != null) ...[
+                if (website != null || mapUrl.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -314,11 +322,10 @@ class _OverviewTab extends StatelessWidget {
                       if (website != null)
                         LinkChip(
                             icon: Icons.public, label: 'Website', url: website),
-                      if (mapUrl != null)
-                        LinkChip(
-                            icon: Icons.location_on,
-                            label: 'Open in Maps',
-                            url: mapUrl),
+                      LinkChip(
+                          icon: Icons.location_on,
+                          label: 'Open in Maps',
+                          url: mapUrl),
                     ],
                   ),
                 ],
@@ -429,7 +436,7 @@ class _HistoryTabState extends State<_HistoryTab> {
     final theme = Theme.of(context);
     final text = widget.campus.history;
     final preview = text.length > 300 ? text.substring(0, 300) + '…' : text;
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

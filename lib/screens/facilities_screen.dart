@@ -197,12 +197,49 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
   }
 }
 
-class CampusFacilitiesDetail extends StatelessWidget {
+class CampusFacilitiesDetail extends StatefulWidget {
   final Campus campus;
   const CampusFacilitiesDetail({super.key, required this.campus});
 
   @override
+  State<CampusFacilitiesDetail> createState() => _CampusFacilitiesDetailState();
+}
+
+class _CampusFacilitiesDetailState extends State<CampusFacilitiesDetail> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  List<String> get _assets {
+    final name = widget.campus.name;
+    final list = galleryAssetsForCampus(name);
+    if (list.isNotEmpty) return list;
+    return widget.campus.photoCaptions.keys.toList(growable: false);
+  }
+
+  List<String> get _captions {
+    final name = widget.campus.name;
+    final list = galleryAssetsForCampus(name);
+    if (list.isNotEmpty) {
+      return List.filled(list.length, name);
+    }
+    return widget.campus.photoCaptions.values.toList(growable: false);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.9);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final campus = widget.campus;
     return Scaffold(
       appBar: AppBar(title: Text('${campus.name} Facilities')),
       body: SingleChildScrollView(
@@ -250,19 +287,12 @@ class CampusFacilitiesDetail extends StatelessWidget {
                   SizedBox(
                     height: 220,
                     child: PageView.builder(
-                      itemCount: galleryAssetsForCampus(campus.name).isNotEmpty
-                          ? galleryAssetsForCampus(campus.name).length
-                          : campus.photoCaptions.length,
-                      controller: PageController(viewportFraction: 0.9),
+                      itemCount: _assets.length,
+                      controller: _pageController,
+                      onPageChanged: (i) => setState(() => _currentPage = i),
                       itemBuilder: (context, index) {
-                        final hasAssets =
-                            galleryAssetsForCampus(campus.name).isNotEmpty;
-                        final assetPath = hasAssets
-                            ? galleryAssetsForCampus(campus.name)[index]
-                            : campus.photoCaptions.keys.elementAt(index);
-                        final caption = hasAssets
-                            ? campus.name
-                            : campus.photoCaptions.values.elementAt(index);
+                        final assetPath = _assets[index];
+                        final caption = _captions[index];
                         return Padding(
                           padding: const EdgeInsets.only(right: 10.0),
                           child: ClipRRect(
@@ -276,15 +306,30 @@ class CampusFacilitiesDetail extends StatelessWidget {
                                   fit: BoxFit.cover,
                                   debugLabel: assetPath,
                                 ),
+                                // Bottom gradient + caption
                                 Align(
                                   alignment: Alignment.bottomCenter,
                                   child: Container(
+                                    decoration: const BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Color(0x00000000),
+                                          Color(0x88000000),
+                                          Color(0xCC000000),
+                                        ],
+                                      ),
+                                    ),
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 6),
-                                    color: Colors.black54,
+                                        horizontal: 8, vertical: 10),
                                     child: Text(
                                       caption,
-                                      style: const TextStyle(fontSize: 12),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                       textAlign: TextAlign.center,
                                     ),
                                   ),
@@ -296,6 +341,27 @@ class CampusFacilitiesDetail extends StatelessWidget {
                       },
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  // Page indicators
+                  if (_assets.length > 1)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(_assets.length, (i) {
+                        final active = i == _currentPage;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          height: 6,
+                          width: active ? 18 : 8,
+                          decoration: BoxDecoration(
+                            color: active
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey[600],
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        );
+                      }),
+                    ),
                 ],
               ),
             ),
@@ -311,9 +377,6 @@ class CampusFacilitiesDetail extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      ActionChip(
-                          label: const Text('Cafeteria'),
-                          onPressed: () => context.go('/cafeteria')),
                       ActionChip(
                           label: const Text('Events'),
                           onPressed: () => context.go('/home')),

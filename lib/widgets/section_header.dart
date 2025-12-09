@@ -8,7 +8,6 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = theme.colorScheme.onSurface;
-    final accent = theme.colorScheme.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -21,14 +20,6 @@ class SectionHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Container(
-          height: 3,
-          width: 36,
-          decoration: BoxDecoration(
-            color: accent,
-            borderRadius: BorderRadius.circular(999),
-          ),
-        ),
       ],
     );
   }

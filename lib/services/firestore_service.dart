@@ -178,6 +178,69 @@ class FirestoreService {
     await _appointments.doc(appointmentId).update(updateData);
   }
 
+  /// Clear all appointments (for professors to reset their bookings)
+  static Future<void> clearAllAppointments() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) throw Exception('User not authenticated');
+
+    // Get professor doc to find appointments
+    final prof = await getProfessorByUserId(uid);
+    if (prof != null) {
+      final professorId = prof['id'] as String;
+      // Delete all appointments for this professor
+      final snap = await _appointments
+          .where('ProffessorID', isEqualTo: professorId)
+          .get();
+      for (final doc in snap.docs) {
+        await doc.reference.delete();
+      }
+    }
+  }
+
+  /// Submit admission form to Firestore
+  static Future<String> submitAdmission({
+    required String childName,
+    required String parentName,
+    required String parentEmail,
+    required String phone,
+    required String campus,
+    required String gradeApplying,
+    required String childDob,
+    required String gender,
+    String? notes,
+    String? imageBase64,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    final doc = await _db.collection('admission_submissions').add({
+      'studentID': user.uid,
+      'childName': childName,
+      'parentName': parentName,
+      'parentEmail': parentEmail,
+      'phone': phone,
+      'campus': campus,
+      'gradeApplying': gradeApplying,
+      'childDob': childDob,
+      'gender': gender,
+      'notes': notes ?? '',
+      'imageBase64': imageBase64,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    return doc.id;
+  }
+
+  /// Stream student's admission submissions
+  static Stream<QuerySnapshot> streamStudentAdmissions(String studentId) {
+    return _db
+        .collection('admission_submissions')
+        .where('studentID', isEqualTo: studentId)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
   /// Get user profile document
   static Future<Map<String, dynamic>?> getUserProfile(String userId) async {
     final doc = await _users.doc(userId).get();
